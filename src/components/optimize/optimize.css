@@ -356,3 +356,8 @@
   color: var(--color-text-2);
   white-space: nowrap;
 }
+/* Lighter than the HEIC: same badge, the savings colour. */
+.badge--convert[data-shrunk="true"] {
+  background: var(--color-signal-soft);
+  color: var(--color-signal);
+}
