@@ -61,6 +61,8 @@ function applyEvent(state: SessionState, event: SessionEvent): SessionState {
 export interface LiveStats {
   processed: number;
   optimized: number;
+  /** HEIC photos turned into JPEGs; their bytes stay out of the savings. */
+  converted: number;
   originalBytes: number;
   outputBytes: number;
   savedBytes: number;
@@ -69,13 +71,17 @@ export interface LiveStats {
 /** Running totals derived from results — the right panel updates as each file lands. */
 export function liveStats(results: FileResult[]): LiveStats {
   return results.reduce<LiveStats>(
-    (acc, r) => ({
-      processed: acc.processed + 1,
-      optimized: acc.optimized + (r.status === "done" ? 1 : 0),
-      originalBytes: acc.originalBytes + r.originalBytes,
-      outputBytes: acc.outputBytes + r.outputBytes,
-      savedBytes: acc.savedBytes + Math.max(0, r.originalBytes - r.outputBytes),
-    }),
-    { processed: 0, optimized: 0, originalBytes: 0, outputBytes: 0, savedBytes: 0 },
+    (acc, r) =>
+      r.converted
+        ? { ...acc, processed: acc.processed + 1, converted: acc.converted + 1 }
+        : {
+            ...acc,
+            processed: acc.processed + 1,
+            optimized: acc.optimized + (r.status === "done" ? 1 : 0),
+            originalBytes: acc.originalBytes + r.originalBytes,
+            outputBytes: acc.outputBytes + r.outputBytes,
+            savedBytes: acc.savedBytes + Math.max(0, r.originalBytes - r.outputBytes),
+          },
+    { processed: 0, optimized: 0, converted: 0, originalBytes: 0, outputBytes: 0, savedBytes: 0 },
   );
 }

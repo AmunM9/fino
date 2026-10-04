@@ -259,7 +259,12 @@ fn restore_session(state: &AppState, id: &str) -> Result<(), String> {
         .backups
         .drain(..)
         .map(|b| {
-            let outcome = fino_core::files::restore(&b.backup, &b.original, b.written);
+            let outcome = match &b.output {
+                Some(jpeg) => {
+                    fino_core::files::restore_converted(&b.backup, &b.original, jpeg, b.written)
+                }
+                None => fino_core::files::restore(&b.backup, &b.original, b.written),
+            };
             (b, outcome)
         })
         .partition(|(_, outcome)| outcome.is_ok());
@@ -279,7 +284,7 @@ fn restore_session(state: &AppState, id: &str) -> Result<(), String> {
     let undone_saving: u64 = record
         .results
         .iter()
-        .filter(|r| restored_paths.contains(&r.path))
+        .filter(|r| restored_paths.contains(&r.path) && !r.converted) // conversions never counted
         .map(|r| r.original_bytes.saturating_sub(r.output_bytes))
         .sum();
     let fully_undone = record.backups.is_empty();

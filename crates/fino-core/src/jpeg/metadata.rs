@@ -7,10 +7,13 @@ use super::{exif, xmp_gps};
 use crate::error::{FinoError, Result};
 
 const COM: u8 = 0xFE;
-const APP1: u8 = 0xE1;
-const APP2: u8 = 0xE2;
-const EXIF_HEADER: &[u8] = b"Exif\0\0";
-const XMP_HEADER: &[u8] = b"http://ns.adobe.com/xap/1.0/\0";
+pub const APP1: u8 = 0xE1;
+pub const APP2: u8 = 0xE2;
+pub const EXIF_HEADER: &[u8] = b"Exif\0\0";
+pub const XMP_HEADER: &[u8] = b"http://ns.adobe.com/xap/1.0/\0";
+const ICC_HEADER: &[u8] = b"ICC_PROFILE\0";
+/// Room for the ICC header and the two sequence bytes in one APP2 segment.
+const ICC_CHUNK: usize = MAX_SEGMENT_BODY - ICC_HEADER.len() - 2;
 /// Multi-Picture Format index: points at images appended after EOI, which a
 /// re-encode cannot carry, so the index would dangle.
 const MPF_HEADER: &[u8] = b"MPF\0";
@@ -79,8 +82,34 @@ pub fn prepare_segments(
     strip_location: bool,
     marker_text: &str,
 ) -> Result<Vec<Segment>> {
+    prepare_segments_from(metadata_segments(original)?, strip_location, marker_text)
+}
+
+/// APP2 `ICC_PROFILE` segments carrying `icc`, split as the ICC spec requires.
+pub fn icc_segments(icc: &[u8]) -> Vec<Segment> {
+    let chunks: Vec<&[u8]> = icc.chunks(ICC_CHUNK).collect();
+    let total = chunks.len().min(255) as u8;
+    chunks
+        .into_iter()
+        .take(255)
+        .enumerate()
+        .map(|(i, chunk)| {
+            let mut body = ICC_HEADER.to_vec();
+            body.extend_from_slice(&[i as u8 + 1, total]);
+            body.extend_from_slice(chunk);
+            Segment { marker: APP2, body }
+        })
+        .collect()
+}
+
+/// Like `prepare_segments`, for segments gathered elsewhere (e.g. from a HEIC container).
+pub fn prepare_segments_from(
+    segments: Vec<Segment>,
+    strip_location: bool,
+    marker_text: &str,
+) -> Result<Vec<Segment>> {
     let mut out = Vec::new();
-    for seg in metadata_segments(original)? {
+    for seg in segments {
         if seg.marker == COM && seg.body.starts_with(FINO_MARKER_PREFIX) {
             continue;
         }

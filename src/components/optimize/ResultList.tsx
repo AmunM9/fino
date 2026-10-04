@@ -27,6 +27,18 @@ function Detail({ result }: { result: FileResult }) {
   );
 }
 
+/** A HEIC turned into a JPEG: the size change is shown signed — it can grow. */
+function ConversionBadge({ result }: { result: FileResult }) {
+  const change = result.originalBytes > 0 ? result.outputBytes / result.originalBytes - 1 : 0;
+  const sign = change > 0 ? "+" : change < 0 ? "−" : "";
+  return (
+    <span className="badge badge--convert num" title={t.convert.hint}>
+      {t.convert.badge} {sign}
+      {formatPercent(Math.abs(change))}
+    </span>
+  );
+}
+
 export function ResultList({ results, onOpen }: Props) {
   const ordered = [...results].sort((a, b) => a.id - b.id);
   return (
@@ -51,7 +63,11 @@ export function ResultList({ results, onOpen }: Props) {
                       {r.score !== null ? formatScore(r.score) : ""}
                     </span>
                   )}
-                  <span className="badge badge--signal num">−{formatPercent(saved)}</span>
+                  {r.converted ? (
+                    <ConversionBadge result={r} />
+                  ) : (
+                    <span className="badge badge--signal num">−{formatPercent(saved)}</span>
+                  )}
                 </>
               )}
             </button>

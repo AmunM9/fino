@@ -23,3 +23,9 @@ zune-jpeg = "0.5.15"
 [dev-dependencies]
 fast-ssim2 = { version = "0.8.2", features = ["imgref"] }
 tempfile = "3.27.0"
+
+# HEIC decoding through the system's ImageIO (no bundled HEVC codec).
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2-core-foundation = { version = "0.3.2", default-features = false, features = ["std", "CFBase", "CFData", "CFDictionary", "CFString", "CFNumber", "CFCGTypes"] }
+objc2-core-graphics = { version = "0.3.2", default-features = false, features = ["std", "CGImage", "CGColorSpace", "CGContext", "CGBitmapContext", "CGDataProvider"] }
+objc2-image-io = { version = "0.3.2", default-features = false, features = ["std", "CGImageSource", "CGImageProperties", "CGImageDestination", "CGImageMetadata", "objc2-core-graphics"] }

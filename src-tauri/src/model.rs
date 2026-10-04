@@ -66,6 +66,8 @@ pub struct Settings {
     pub appearance: Appearance,
     /// The compact "mini" window instead of the full one.
     pub compact_window: bool,
+    /// HEIC photos become optimized JPEGs (the HEIC is backed up like a replaced original).
+    pub convert_heic: bool,
 }
 
 impl Default for Settings {
@@ -82,6 +84,7 @@ impl Default for Settings {
             skip_optimized: true,
             appearance: Appearance::System,
             compact_window: false,
+            convert_heic: true,
         }
     }
 }

@@ -7,6 +7,7 @@
 pub mod codec;
 mod error;
 pub mod files;
+pub mod heic;
 pub mod jpeg;
 pub mod lossless;
 pub mod metric;

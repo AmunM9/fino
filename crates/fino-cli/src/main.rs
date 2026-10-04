@@ -1,7 +1,8 @@
-//! `fino` — perceptually lossless JPEG recompression from the terminal.
+//! `fino` — perceptually lossless JPEG recompression (and HEIC → JPEG) from the terminal.
 //!
 //!     fino ~/Pictures/Trip                 # optimized copies in ~/Pictures/Trip/Fino
 //!     fino --in-place --long-edge 2048 *.jpg
+//!     fino ~/Downloads/IMG_0001.HEIC       # → ~/Downloads/Fino/IMG_0001.JPG
 
 use clap::{Parser, ValueEnum};
 use fino_core::files::{self, Job};
@@ -32,7 +33,7 @@ impl From<Level> for Strength {
 #[command(
     name = "fino",
     version,
-    about = "Smaller JPEGs that look exactly the same."
+    about = "Smaller JPEGs that look exactly the same. HEIC photos become optimized JPEGs."
 )]
 struct Cli {
     /// Photos or folders (folders are searched recursively).
@@ -69,6 +70,10 @@ struct Cli {
     #[arg(long)]
     force: bool,
 
+    /// Leave HEIC photos alone instead of converting them to JPEG.
+    #[arg(long)]
+    no_heic: bool,
+
     /// Analyse and report, but write nothing.
     #[arg(long)]
     dry_run: bool,
@@ -89,12 +94,18 @@ impl Cli {
             resize: self.resize(),
             strip_location: self.strip_location,
             skip_optimized: !self.force,
+            convert_heic: !self.no_heic,
             ..Default::default()
         }
     }
 
-    fn destination(&self, job: &Job) -> PathBuf {
-        let name = job.path.file_name().unwrap_or_default();
+    fn destination(&self, job: &Job, converted: bool) -> PathBuf {
+        let source = if converted {
+            files::converted_name(&job.path)
+        } else {
+            job.path.clone()
+        };
+        let name = source.file_name().unwrap_or_default();
         match (&self.out, &job.root) {
             (Some(out), Some(root)) => {
                 let rel = job
@@ -124,6 +135,7 @@ struct Totals {
     before: AtomicU64,
     after: AtomicU64,
     optimized: AtomicUsize,
+    converted: AtomicUsize,
     skipped: AtomicUsize,
     failed: AtomicUsize,
 }
@@ -147,21 +159,46 @@ fn process(
             hint.record(o.quality);
         }
     }
-    totals
-        .before
-        .fetch_add(data.len() as u64, Ordering::Relaxed);
+    match &outcome {
+        Outcome::Optimized(o) if o.converted => {} // conversions stay out of the savings
+        _ => {
+            totals
+                .before
+                .fetch_add(data.len() as u64, Ordering::Relaxed);
+        }
+    }
     match outcome {
         Outcome::Skipped(reason) => {
             totals.after.fetch_add(data.len() as u64, Ordering::Relaxed);
             totals.skipped.fetch_add(1, Ordering::Relaxed);
             Ok(format!("  skip  {name}  ({reason:?})"))
         }
+        Outcome::Optimized(o) if o.converted => {
+            let written = if cli.dry_run {
+                files::converted_name(&job.path)
+            } else if cli.in_place {
+                files::convert_in_place(&job.path, &o.bytes, None)
+                    .map_err(|e| format!("{name}: {e}"))?
+            } else {
+                files::export(&job.path, &cli.destination(job, true), &o.bytes)
+                    .map_err(|e| format!("{name}: {e}"))?
+            };
+            totals.converted.fetch_add(1, Ordering::Relaxed);
+            let change = 100.0 * (o.bytes.len() as f64 / data.len() as f64 - 1.0);
+            Ok(format!(
+                "  heic  {name} → {}  {} → {} ({change:+.0}%)  q{}",
+                written.display(),
+                human(data.len() as u64),
+                human(o.bytes.len() as u64),
+                o.quality
+            ))
+        }
         Outcome::Optimized(o) => {
             if !cli.dry_run {
                 let written = if cli.in_place {
                     files::replace(&job.path, &o.bytes, None).map(|_| job.path.clone())
                 } else {
-                    files::export(&job.path, &cli.destination(job), &o.bytes)
+                    files::export(&job.path, &cli.destination(job, false), &o.bytes)
                 };
                 written.map_err(|e| format!("{name}: {e}"))?;
             }
@@ -210,8 +247,9 @@ fn main() -> ExitCode {
         0.0
     };
     println!(
-        "\n{} optimized · {} skipped · {} failed — saved {} ({pct:.1}%){}",
+        "\n{} optimized · {} converted from HEIC · {} skipped · {} failed — saved {} ({pct:.1}%){}",
         totals.optimized.load(Ordering::Relaxed),
+        totals.converted.load(Ordering::Relaxed),
         totals.skipped.load(Ordering::Relaxed),
         totals.failed.load(Ordering::Relaxed),
         human(before.saturating_sub(after)),

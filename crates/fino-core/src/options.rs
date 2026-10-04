@@ -80,6 +80,13 @@ pub struct OptimizeOptions {
     /// Refuse images above this many pixels. Each in-flight photo needs ~16 bytes per
     /// pixel (pixels + metric planes), so this bounds memory with parallel files.
     pub max_pixels: u64,
+    /// HEIC photos become optimized JPEGs; when off they are skipped.
+    #[serde(default = "convert_heic_default")]
+    pub convert_heic: bool,
+}
+
+fn convert_heic_default() -> bool {
+    true
 }
 
 impl Default for OptimizeOptions {
@@ -92,6 +99,7 @@ impl Default for OptimizeOptions {
             min_gain: 0.03,
             quality_hint: None,
             max_pixels: 120_000_000,
+            convert_heic: true,
         }
     }
 }

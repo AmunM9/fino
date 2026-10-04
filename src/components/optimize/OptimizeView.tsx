@@ -88,6 +88,7 @@ function DoneStage() {
           ) : (
             !summary?.undone && t.session.nothingSavedHint
           )}
+          {stats.converted > 0 && <span className="done__meta"> · {t.convert.count(stats.converted)}</span>}
           {skipped > 0 && <span className="done__meta"> · {t.session.skipped(skipped)}</span>}
           {failed > 0 && <span className="done__meta done__meta--danger"> · {t.session.failed(failed)}</span>}
         </p>

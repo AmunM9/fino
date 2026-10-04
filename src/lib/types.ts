@@ -45,7 +45,10 @@ export type SkipReason =
   | "exoticJpeg"
   | "tooLarge"
   | "hdrGainMap"
-  | "embeddedMedia";
+  | "embeddedMedia"
+  | "hdrPhoto"
+  | "spatialPhoto"
+  | "conversionOff";
 
 export interface OutputFile {
   path: string;

@@ -10,6 +10,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::SystemTime;
 
 const JPEG_EXTENSIONS: [&str; 4] = ["jpg", "jpeg", "jpe", "jfif"];
+const HEIC_EXTENSIONS: [&str; 3] = ["heic", "heif", "hif"];
+const VIDEO_EXTENSIONS: [&str; 1] = ["mov"];
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Job {
@@ -24,6 +26,16 @@ pub fn has_jpeg_extension(path: &Path) -> bool {
         .is_some_and(|e| JPEG_EXTENSIONS.iter().any(|j| e.eq_ignore_ascii_case(j)))
 }
 
+fn extension_in(path: &Path, list: &[&str]) -> bool {
+    path.extension()
+        .and_then(|e| e.to_str())
+        .is_some_and(|e| list.iter().any(|j| e.eq_ignore_ascii_case(j)))
+}
+
+pub fn has_heic_extension(path: &Path) -> bool {
+    extension_in(path, &HEIC_EXTENSIONS)
+}
+
 fn is_hidden(path: &Path) -> bool {
     path.file_name()
         .and_then(|n| n.to_str())
@@ -31,7 +43,7 @@ fn is_hidden(path: &Path) -> bool {
 }
 
 /// Expands dropped paths into files. Files dropped directly are always included (so the user
-/// learns why a non-JPEG was skipped); inside folders only JPEGs are picked up. Symlinked
+/// learns why a non-JPEG was skipped); inside folders only JPEGs and HEICs are picked up. Symlinked
 /// folders are not followed. Each file appears once even if dropped twice (e.g. a folder and
 /// a photo inside it) — two workers on one file would race on the same bytes.
 pub fn collect(paths: &[PathBuf]) -> Vec<Job> {
@@ -69,7 +81,7 @@ fn walk(dir: &Path, root: &Path, jobs: &mut Vec<Job>) {
         }
         if kind.is_dir() {
             walk(&path, root, jobs);
-        } else if kind.is_file() && has_jpeg_extension(&path) {
+        } else if kind.is_file() && (has_jpeg_extension(&path) || has_heic_extension(&path)) {
             jobs.push(Job {
                 path,
                 root: Some(root.to_path_buf()),
@@ -219,6 +231,96 @@ pub fn replace(path: &Path, bytes: &[u8], backup_to: Option<&Path>) -> std::io::
     write_atomic(path, bytes)?;
     let _ = attrs.apply(path);
     Ok(())
+}
+
+/// Where a converted photo goes next to its source: same name, `.jpg` (`.JPG` when the
+/// source's extension is upper case, as iPhones write), never over an existing file.
+pub fn converted_path(source: &Path) -> PathBuf {
+    unique_path(&converted_name(source))
+}
+
+/// `IMG_0001.HEIC` → `IMG_0001.JPG`, `photo.heic` → `photo.jpg`.
+pub fn converted_name(source: &Path) -> PathBuf {
+    let upper = source
+        .extension()
+        .and_then(|e| e.to_str())
+        .is_some_and(|e| e.chars().all(|c| c.is_ascii_uppercase()));
+    source.with_extension(if upper { "JPG" } else { "jpg" })
+}
+
+/// Moves a file, across volumes if needed (copy, then delete the source).
+fn move_file(from: &Path, to: &Path) -> std::io::Result<()> {
+    if let Some(parent) = to.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    if fs::rename(from, to).is_ok() {
+        return Ok(());
+    }
+    let attrs = Attributes::read(from)?;
+    fs::copy(from, to)?;
+    let _ = attrs.apply(to);
+    fs::remove_file(from)
+}
+
+/// Replace mode for a conversion (HEIC → JPEG): writes `bytes` as a new JPEG next to
+/// `source` with the source's dates and tags, then moves the source into `backup_to` (or
+/// deletes it when backups are off). If the source cannot be retired, the new JPEG is
+/// removed again so nothing is left half done. Returns the JPEG's path.
+pub fn convert_in_place(
+    source: &Path,
+    bytes: &[u8],
+    backup_to: Option<&Path>,
+) -> std::io::Result<PathBuf> {
+    let attrs = Attributes::read(source)?;
+    let out = converted_path(source);
+    write_atomic(&out, bytes)?;
+    let _ = attrs.apply(&out);
+    let retired = match backup_to {
+        Some(dest) => move_file(source, dest),
+        None => fs::remove_file(source),
+    };
+    if let Err(e) = retired {
+        let _ = fs::remove_file(&out);
+        return Err(e);
+    }
+    Ok(out)
+}
+
+/// Undo of `convert_in_place`: puts the original back and removes the JPEG — unless the
+/// JPEG changed since Fino wrote it, or something new took the original's name.
+pub fn restore_converted(
+    backup: &Path,
+    original: &Path,
+    output: &Path,
+    expected: Option<Fingerprint>,
+) -> std::io::Result<()> {
+    if let Some(expected) = expected {
+        if fingerprint(output).ok() != Some(expected) {
+            return Err(std::io::Error::other(
+                "the converted photo changed after it was written; left as is",
+            ));
+        }
+    }
+    if original.exists() {
+        return Err(std::io::Error::other(
+            "a file with the original's name exists again; left as is",
+        ));
+    }
+    move_file(backup, original)?;
+    match fs::remove_file(output) {
+        Err(e) if e.kind() != std::io::ErrorKind::NotFound => Err(e),
+        _ => Ok(()),
+    }
+}
+
+/// The video half of a Live Photo: a `.mov` with the same name next to the photo.
+pub fn live_photo_video(photo: &Path) -> Option<PathBuf> {
+    let stem = photo.file_stem()?;
+    let dir = photo.parent()?;
+    fs::read_dir(dir)
+        .ok()?
+        .filter_map(|e| e.ok().map(|e| e.path()))
+        .find(|p| p.file_stem() == Some(stem) && extension_in(p, &VIDEO_EXTENSIONS))
 }
 
 /// Size and modification time, used to tell whether a file changed since Fino wrote it.
@@ -388,5 +490,54 @@ mod tests {
         let second = export(&src, &dest, b"b").unwrap();
         assert_eq!(first, dest);
         assert_eq!(second, dir.path().join("out/p 2.jpg"));
+    }
+
+    #[test]
+    fn conversion_writes_a_jpeg_beside_and_undo_brings_the_heic_back() {
+        let dir = tempfile::tempdir().unwrap();
+        let heic = dir.path().join("IMG_0001.HEIC");
+        fs::write(&heic, b"heic bytes").unwrap();
+        fs::write(dir.path().join("IMG_0001.JPG"), b"compatible copy").unwrap();
+        let backup = dir.path().join("backups/00000-IMG_0001.HEIC");
+
+        let out = convert_in_place(&heic, b"jpeg bytes", Some(&backup)).unwrap();
+        assert_eq!(
+            out,
+            dir.path().join("IMG_0001 2.JPG"),
+            "never clobbers, keeps case"
+        );
+        assert!(!heic.exists() && backup.exists());
+        assert_eq!(fs::read(&out).unwrap(), b"jpeg bytes");
+
+        let written = fingerprint(&out).ok();
+        restore_converted(&backup, &heic, &out, written).unwrap();
+        assert_eq!(fs::read(&heic).unwrap(), b"heic bytes");
+        assert!(!out.exists() && !backup.exists());
+    }
+
+    #[test]
+    fn undo_of_a_conversion_refuses_to_lose_newer_work() {
+        let dir = tempfile::tempdir().unwrap();
+        let heic = dir.path().join("a.heic");
+        fs::write(&heic, b"heic").unwrap();
+        let backup = dir.path().join("b/a.heic");
+        let out = convert_in_place(&heic, b"jpeg", Some(&backup)).unwrap();
+        let written = fingerprint(&out).ok();
+        fs::write(&out, b"edited in Lightroom afterwards").unwrap();
+        assert!(restore_converted(&backup, &heic, &out, written).is_err());
+        assert!(backup.exists() && out.exists(), "nothing touched");
+    }
+
+    #[test]
+    fn finds_the_video_half_of_a_live_photo() {
+        let dir = tempfile::tempdir().unwrap();
+        let photo = dir.path().join("IMG_0002.HEIC");
+        fs::write(&photo, b"x").unwrap();
+        assert_eq!(live_photo_video(&photo), None);
+        fs::write(dir.path().join("IMG_0002.MOV"), b"v").unwrap();
+        assert_eq!(
+            live_photo_video(&photo),
+            Some(dir.path().join("IMG_0002.MOV"))
+        );
     }
 }

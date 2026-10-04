@@ -21,6 +21,12 @@ pub enum SkipReason {
     HdrGainMap,
     /// Embeds a video or other media after the image (Motion Photos, Samsung trailers).
     EmbeddedMedia,
+    /// HEIC whose primary image is HDR (PQ/HLG): an 8-bit JPEG cannot hold it.
+    HdrPhoto,
+    /// One eye of a spatial (stereo) photo; a JPEG could keep only one.
+    SpatialPhoto,
+    /// HEIC conversion is turned off in the settings.
+    ConversionOff,
 }
 
 #[derive(Debug, Error)]

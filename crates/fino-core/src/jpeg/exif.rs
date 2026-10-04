@@ -91,6 +91,28 @@ pub fn orientation(tiff: &[u8]) -> Option<u16> {
     })
 }
 
+/// Rewrites IFD0's orientation in place. Returns false when the tag is absent (adding one
+/// would move every offset), so the caller can rotate the pixels instead.
+pub fn set_orientation(tiff: &mut [u8], value: u16) -> bool {
+    let Ok(t) = byte_order(tiff) else {
+        return false;
+    };
+    let Some(ifd0) = t.u32(tiff, 4).ok().map(|o| o as usize) else {
+        return false;
+    };
+    let count = t.u16(tiff, ifd0).unwrap_or(0) as usize;
+    let entry = (0..count)
+        .map(|i| ifd0 + 2 + i * ENTRY_SIZE)
+        .find(|&e| t.u16(tiff, e).ok() == Some(ORIENTATION) && t.u16(tiff, e + 2).ok() == Some(3));
+    match entry {
+        Some(e) if e + 10 <= tiff.len() => {
+            t.put_u16(tiff, e + 8, value);
+            true
+        }
+        _ => false,
+    }
+}
+
 /// `tiff` is the EXIF payload after the `Exif\0\0` header.
 pub fn strip_gps(tiff: &mut [u8]) -> Result<()> {
     let t = byte_order(tiff)?;

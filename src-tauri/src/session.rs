@@ -58,9 +58,14 @@ fn safe_label(label: &str) -> String {
     }
 }
 
-/// Destination for an exported copy of `job` at `size`.
-pub fn export_path(settings: &Settings, job: &Job, size: &SizePreset) -> PathBuf {
-    let name = job.path.file_name().unwrap_or_default();
+/// Destination for an exported copy of `job` at `size` (`.jpg` when converting).
+pub fn export_path(settings: &Settings, job: &Job, size: &SizePreset, converted: bool) -> PathBuf {
+    let source = if converted {
+        files::converted_name(&job.path)
+    } else {
+        job.path.clone()
+    };
+    let name = source.file_name().unwrap_or_default();
     let base = match (&settings.export_dir, &job.root) {
         (Some(dir), Some(root)) => {
             let rel = job
@@ -158,6 +163,7 @@ fn process_bytes(
         strip_location: s.strip_location,
         skip_optimized: s.skip_optimized,
         quality_hint: ctx.hint.get(),
+        convert_heic: s.convert_heic,
         ..Default::default()
     };
     let original_bytes = data.len() as u64;
@@ -192,8 +198,9 @@ fn process_bytes(
             });
         }
     };
-    result.width = prepared.header().width;
-    result.height = prepared.header().height;
+    (result.width, result.height) = prepared.dimensions();
+    let converting = prepared.is_conversion();
+    result.converted = converting;
     result.preview_path = ctx.preview_dir.as_ref().and_then(|dir| {
         let bytes = prepared.preview(PREVIEW_LONG_EDGE).ok()?;
         std::fs::create_dir_all(dir).ok()?;
@@ -232,6 +239,24 @@ fn process_bytes(
             }
         };
         let path = match s.output_mode {
+            OutputMode::Replace if converting => {
+                let backup_to = s
+                    .keep_backups
+                    .then(|| ctx.backup_dir.join(format!("{id:05}-{}", result.name)));
+                let out = files::convert_in_place(&job.path, bytes, backup_to.as_deref())
+                    .map_err(|e| e.to_string())?;
+                result.original_path = backup_to.clone();
+                backup = backup_to.map(|b| BackupEntry {
+                    original: job.path.clone(),
+                    backup: b,
+                    written: files::fingerprint(&out).ok(),
+                    output: Some(out.clone()),
+                });
+                if let Some(entry) = &backup {
+                    journal(&ctx.backup_dir, entry);
+                }
+                out
+            }
             OutputMode::Replace => {
                 let backup_to = s
                     .keep_backups
@@ -250,8 +275,19 @@ fn process_bytes(
                 }
                 job.path.clone()
             }
-            OutputMode::Export => files::export(&job.path, &export_path(s, job, size), bytes)
-                .map_err(|e| e.to_string())?,
+            OutputMode::Export => {
+                let dest = export_path(
+                    s,
+                    job,
+                    size,
+                    converting && result.status == FileStatus::Done,
+                );
+                let written = files::export(&job.path, &dest, bytes).map_err(|e| e.to_string())?;
+                if converting && size.resize().is_none() {
+                    export_live_video(&job.path, &written);
+                }
+                written
+            }
         };
         if i == 0 {
             result.output_bytes = bytes.len() as u64;
@@ -271,6 +307,19 @@ fn process_bytes(
     Ok(Processed { result, backup })
 }
 
+/// A converted Live Photo keeps its pair only next to a `.mov` of the same name: exporting
+/// the photo alone would leave the video behind.
+fn export_live_video(source: &Path, written: &Path) {
+    let Some(video) = files::live_photo_video(source) else {
+        return;
+    };
+    let extension = video.extension().unwrap_or_default();
+    let dest = written.with_extension(extension);
+    if !dest.exists() {
+        let _ = files::export(&video, &dest, &std::fs::read(&video).unwrap_or_default());
+    }
+}
+
 pub fn summarize(
     id: &str,
     started_at: u64,
@@ -280,8 +329,10 @@ pub fn summarize(
     can_undo: bool,
 ) -> SessionSummary {
     let count = |status| results.iter().filter(|r| r.status == status).count();
-    let original_bytes: u64 = results.iter().map(|r| r.original_bytes).sum();
-    let output_bytes: u64 = results.iter().map(|r| r.output_bytes).sum();
+    // Conversions change format rather than shrink a file: they stay out of the savings.
+    let optimized = || results.iter().filter(|r| !r.converted);
+    let original_bytes: u64 = optimized().map(|r| r.original_bytes).sum();
+    let output_bytes: u64 = optimized().map(|r| r.output_bytes).sum();
     SessionSummary {
         id: id.to_string(),
         started_at,
@@ -356,12 +407,15 @@ pub fn skip_label(reason: Option<SkipReason>) -> &'static str {
         None => "",
         Some(SkipReason::AlreadyOptimized) => "already optimized",
         Some(SkipReason::NoGain) => "no meaningful gain",
-        Some(SkipReason::Unsupported) => "not a JPEG",
+        Some(SkipReason::Unsupported) => "not a supported photo",
         Some(SkipReason::Cmyk) => "CMYK JPEG",
         Some(SkipReason::ExoticJpeg) => "unsupported JPEG variant",
         Some(SkipReason::TooLarge) => "too large",
         Some(SkipReason::HdrGainMap) => "HDR gain map",
         Some(SkipReason::EmbeddedMedia) => "embedded video or media",
+        Some(SkipReason::HdrPhoto) => "HDR photo (PQ/HLG) a JPEG cannot hold",
+        Some(SkipReason::SpatialPhoto) => "spatial (stereo) photo",
+        Some(SkipReason::ConversionOff) => "HEIC conversion is off",
     }
 }
 
@@ -379,7 +433,12 @@ mod tests {
     #[test]
     fn default_export_goes_to_fino_folder_next_to_photo() {
         let s = Settings::default();
-        let p = export_path(&s, &job("/p/trip/a.jpg", None), &SizePreset::original());
+        let p = export_path(
+            &s,
+            &job("/p/trip/a.jpg", None),
+            &SizePreset::original(),
+            false,
+        );
         assert_eq!(p, PathBuf::from("/p/trip/Fino/a.jpg"));
     }
 
@@ -400,7 +459,7 @@ mod tests {
         };
         let j = job("/p/trip/day1/a.jpg", Some("/p/trip"));
         assert_eq!(
-            export_path(&s, &j, &s.sizes[1]),
+            export_path(&s, &j, &s.sizes[1], false),
             PathBuf::from("/out/trip/day1/2048 px/a.jpg")
         );
     }
@@ -494,6 +553,72 @@ mod tests {
         assert_eq!(std::fs::read(&photo).unwrap(), before);
         assert!(dir.path().join("photos/Fino/a.jpg").exists());
         assert!(record.backups.is_empty() && !record.summary.can_undo);
+    }
+
+    #[cfg(target_os = "macos")]
+    fn heic_fixture() -> Vec<u8> {
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../crates/fino-core/tests/fixtures/rotated.heic"
+        );
+        std::fs::read(path).unwrap()
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn replace_converts_heic_beside_it_and_keeps_it_for_undo() {
+        let dir = tempfile::tempdir().unwrap();
+        let photos = dir.path().join("photos");
+        std::fs::create_dir_all(&photos).unwrap();
+        write_camera_jpeg(&photos.join("a.jpg"));
+        let heic = photos.join("IMG_0001.HEIC");
+        std::fs::write(&heic, heic_fixture()).unwrap();
+
+        let record = run_in(dir.path(), Settings::default());
+
+        let jpeg = photos.join("IMG_0001.JPG");
+        assert!(jpeg.exists() && !heic.exists(), "HEIC replaced by a JPEG");
+        let converted = record
+            .results
+            .iter()
+            .find(|r| r.converted)
+            .expect("converted");
+        assert_eq!(converted.outputs[0].path, jpeg);
+        let entry = record.backups.iter().find(|b| b.output.is_some()).unwrap();
+        assert_eq!(std::fs::read(&entry.backup).unwrap(), heic_fixture());
+        let jpeg_only = record.results.iter().find(|r| !r.converted).unwrap();
+        assert_eq!(
+            record.summary.saved_bytes,
+            jpeg_only.original_bytes - jpeg_only.output_bytes,
+            "conversions stay out of the savings"
+        );
+
+        files::restore_converted(&entry.backup, &heic, &jpeg, entry.written).unwrap();
+        assert!(heic.exists() && !jpeg.exists(), "undo puts the HEIC back");
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn export_converts_heic_and_keeps_live_photo_pairs_together() {
+        let dir = tempfile::tempdir().unwrap();
+        let photos = dir.path().join("photos");
+        std::fs::create_dir_all(&photos).unwrap();
+        write_camera_jpeg(&photos.join("a.jpg"));
+        std::fs::write(photos.join("IMG_0002.HEIC"), heic_fixture()).unwrap();
+        std::fs::write(photos.join("IMG_0002.MOV"), b"live video").unwrap();
+        let settings = Settings {
+            output_mode: OutputMode::Export,
+            ..Settings::default()
+        };
+
+        run_in(dir.path(), settings);
+
+        assert!(photos.join("IMG_0002.HEIC").exists(), "original untouched");
+        assert!(photos.join("Fino/IMG_0002.JPG").exists());
+        assert_eq!(
+            std::fs::read(photos.join("Fino/IMG_0002.MOV")).unwrap(),
+            b"live video"
+        );
     }
 
     #[test]

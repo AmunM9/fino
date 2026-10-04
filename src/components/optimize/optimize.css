@@ -349,3 +349,10 @@
 .row .badge {
   justify-self: end;
 }
+
+/* HEIC → JPEG: a format change, not a saving, so it reads neutral. */
+.badge--convert {
+  background: var(--color-raised);
+  color: var(--color-text-2);
+  white-space: nowrap;
+}

@@ -49,7 +49,8 @@ function result(i: number): FileResult {
 
 const sampleResults: FileResult[] = [
   ...FILES.map((_, i) => result(i)),
-  { ...result(0), id: 3, name: "IMG_2041.jpg", status: "skipped", skipReason: "alreadyOptimized", outputBytes: 243_900, outputs: [] },
+  { ...result(1), id: 3, name: "IMG_0412.HEIC", originalBytes: 118_400, outputBytes: 131_900, score: 84.9, converted: true },
+  { ...result(0), id: 4, name: "IMG_2041.jpg", status: "skipped", skipReason: "alreadyOptimized", outputBytes: 243_900, outputs: [] },
 ];
 
 const summary = (id: string, startedAt: number, extra: Partial<SessionSummary> = {}): SessionSummary => ({

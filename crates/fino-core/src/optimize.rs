@@ -2,7 +2,7 @@
 
 use crate::codec::{self, Pixels};
 use crate::error::{FinoError, Result, SkipReason};
-use crate::jpeg::{self, exif, metadata, FrameKind, HeaderInfo};
+use crate::jpeg::{self, exif, metadata, mpf, FrameKind, HeaderInfo};
 use crate::lossless;
 use crate::metric::{Reference, Score};
 use crate::options::{OptimizeOptions, Resize};
@@ -21,6 +21,8 @@ const ALREADY_COMPRESSED_QUALITY: u8 = 90;
 const MARGINAL_GAIN: f64 = 0.10;
 /// Lossless wins if it is within this factor of the perceptual size.
 const LOSSLESS_PREFERENCE: f64 = 1.03;
+/// HEVC photos are 4:2:0; a 4:4:4 JPEG would spend bytes on chroma the source never had.
+const CONVERTED_CHROMA: (u8, u8) = (2, 2);
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Optimized {
@@ -31,6 +33,8 @@ pub struct Optimized {
     pub score: Score,
     /// Coefficients untouched (entropy coding only): decoded pixels are bit-identical.
     pub lossless: bool,
+    /// Made from another format (HEIC): a new JPEG rather than a smaller copy of the source.
+    pub converted: bool,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -39,10 +43,25 @@ pub enum Outcome {
     Skipped(SkipReason),
 }
 
+/// A source in another format being converted to JPEG (see `heic`).
+pub(crate) struct Converted {
+    /// APPn segments for the output (EXIF, XMP, ICC) before location stripping and marker.
+    pub segments: Vec<metadata::Segment>,
+    /// Auxiliary images (HDR gain map, depth…) appended as MPF secondaries.
+    pub secondaries: Vec<mpf::MpImage>,
+}
+
+enum Source<'a> {
+    Jpeg {
+        original: &'a [u8],
+        header: HeaderInfo,
+    },
+    Converted(Converted),
+}
+
 /// A decoded source, ready to be rendered at one or more sizes without decoding again.
 pub struct Prepared<'a> {
-    original: &'a [u8],
-    header: HeaderInfo,
+    source: Source<'a>,
     pixels: Pixels,
     orientation: u16,
     options: OptimizeOptions,
@@ -82,11 +101,14 @@ fn precheck(data: &[u8], header: &HeaderInfo, options: &OptimizeOptions) -> Opti
     None
 }
 
-/// Decodes `data`, or explains why it will be left alone.
+/// Decodes `data` (JPEG, or HEIC to convert), or explains why it will be left alone.
 pub fn prepare<'a>(
     data: &'a [u8],
     options: &OptimizeOptions,
 ) -> Result<std::result::Result<Prepared<'a>, SkipReason>> {
+    if crate::heic::is_heif(data) {
+        return crate::heic::prepare(data, options);
+    }
     if !is_jpeg(data) {
         return Ok(Err(SkipReason::Unsupported));
     }
@@ -100,17 +122,39 @@ pub fn prepare<'a>(
     }
     let orientation = read_orientation(data);
     Ok(Ok(Prepared {
-        original: data,
-        header,
+        source: Source::Jpeg {
+            original: data,
+            header,
+        },
         pixels,
         orientation,
         options: options.clone(),
     }))
 }
 
-impl Prepared<'_> {
-    pub fn header(&self) -> &HeaderInfo {
-        &self.header
+impl<'a> Prepared<'a> {
+    pub(crate) fn converted(
+        pixels: Pixels,
+        orientation: u16,
+        options: &OptimizeOptions,
+        converted: Converted,
+    ) -> Self {
+        Self {
+            source: Source::Converted(converted),
+            pixels,
+            orientation,
+            options: options.clone(),
+        }
+    }
+
+    /// Stored pixel dimensions (before EXIF orientation is applied).
+    pub fn dimensions(&self) -> (u32, u32) {
+        (self.pixels.width, self.pixels.height)
+    }
+
+    /// The output will be a JPEG made from another format.
+    pub fn is_conversion(&self) -> bool {
+        matches!(self.source, Source::Converted(_))
     }
 
     /// Small upright JPEG of the photo for UI thumbnails — cheap, because the pixels are
@@ -133,6 +177,72 @@ impl Prepared<'_> {
 
     /// Renders the source at `size` (`None` = original dimensions).
     pub fn render(&self, size: Option<Resize>) -> Result<Outcome> {
+        match &self.source {
+            Source::Jpeg { original, header } => self.render_jpeg(original, header, size),
+            Source::Converted(c) => self.render_converted(c, size),
+        }
+    }
+
+    fn resized(&self, size: Option<Resize>) -> Result<Option<Pixels>> {
+        let target = size.and_then(|r| {
+            resize::target_size(self.pixels.width, self.pixels.height, self.orientation, r)
+        });
+        target
+            .map(|(w, h)| resize::resize(&self.pixels, w, h))
+            .transpose()
+    }
+
+    /// Another format to JPEG: always produces a file. Quality targets are relative to the
+    /// best score a JPEG can reach here, since re-encoding a non-JPEG source can never be
+    /// as transparent as re-quantizing a JPEG on its own 8×8 grid.
+    fn render_converted(&self, c: &Converted, size: Option<Resize>) -> Result<Outcome> {
+        let resized = self.resized(size)?;
+        let pixels = resized.as_ref().unwrap_or(&self.pixels);
+        let reference = Reference::new(pixels)?;
+        let strength = self.options.strength;
+        let chroma = CONVERTED_CHROMA;
+        let targets = search::ceiling_targets(pixels, &reference, chroma, strength)?;
+        let found = search::find_smallest_with(
+            pixels,
+            &reference,
+            chroma,
+            strength,
+            self.options.quality_hint,
+            targets,
+        )?;
+        let c_best = match found {
+            Some(candidate) => candidate,
+            None => search::top_quality(pixels, &reference, chroma, strength)?,
+        };
+        let marker = format!(
+            "{} q={} s={:.1} from=heic",
+            crate::VERSION,
+            c_best.quality,
+            c_best.score.global
+        );
+        let segments = metadata::prepare_segments_from(
+            c.segments.clone(),
+            self.options.strip_location,
+            &marker,
+        )?;
+        let primary = metadata::splice(&c_best.jpeg, &segments)?;
+        Ok(Outcome::Optimized(Optimized {
+            bytes: mpf::append(&primary, &c.secondaries)?,
+            width: pixels.width,
+            height: pixels.height,
+            quality: c_best.quality,
+            score: c_best.score,
+            lossless: false,
+            converted: true,
+        }))
+    }
+
+    fn render_jpeg(
+        &self,
+        original: &[u8],
+        header: &HeaderInfo,
+        size: Option<Resize>,
+    ) -> Result<Outcome> {
         let target = size.and_then(|r| {
             resize::target_size(self.pixels.width, self.pixels.height, self.orientation, r)
         });
@@ -141,23 +251,22 @@ impl Prepared<'_> {
             None => None,
         };
         let is_resized = resized.is_some();
-        if !is_resized && self.header.has_fino_marker && self.options.skip_optimized {
+        if !is_resized && header.has_fino_marker && self.options.skip_optimized {
             return Ok(Outcome::Skipped(SkipReason::AlreadyOptimized));
         }
-        let already_compressed = self
-            .header
+        let already_compressed = header
             .quality_estimate
             .is_some_and(|q| q < ALREADY_COMPRESSED_QUALITY);
         if !is_resized && already_compressed {
-            let original = self.original.len() as f64;
+            let original_len = original.len() as f64;
             let lossless = self
-                .lossless()?
-                .filter(|o| 1.0 - o.bytes.len() as f64 / original >= LOSSLESS_MIN_GAIN);
+                .lossless(original, header)?
+                .filter(|o| 1.0 - o.bytes.len() as f64 / original_len >= LOSSLESS_MIN_GAIN);
             return Ok(lossless.map_or(Outcome::Skipped(SkipReason::NoGain), Outcome::Optimized));
         }
         let pixels = resized.as_ref().unwrap_or(&self.pixels);
         let reference = Reference::new(pixels)?;
-        let chroma = self.header.chroma_block();
+        let chroma = header.chroma_block();
         let strength = self.options.strength;
 
         let candidate = match search::find_smallest(
@@ -175,12 +284,13 @@ impl Prepared<'_> {
             Some(c) => {
                 let marker = format!("{} q={} s={:.1}", crate::VERSION, c.quality, c.score.global);
                 Some(Optimized {
-                    bytes: self.with_metadata(&c.jpeg, &marker)?,
+                    bytes: self.with_metadata(original, &c.jpeg, &marker)?,
                     width: pixels.width,
                     height: pixels.height,
                     quality: c.quality,
                     score: c.score,
                     lossless: false,
+                    converted: false,
                 })
             }
             None => None,
@@ -189,8 +299,8 @@ impl Prepared<'_> {
             return Ok(perceptual.map_or(Outcome::Skipped(SkipReason::NoGain), Outcome::Optimized));
         }
 
-        let original = self.original.len() as f64;
-        let gain = |o: &Optimized| 1.0 - o.bytes.len() as f64 / original;
+        let original_len = original.len() as f64;
+        let gain = |o: &Optimized| 1.0 - o.bytes.len() as f64 / original_len;
         let perceptual = perceptual.filter(|o| gain(o) >= self.options.min_gain);
         if perceptual
             .as_ref()
@@ -198,7 +308,9 @@ impl Prepared<'_> {
         {
             return Ok(Outcome::Optimized(perceptual.expect("checked above")));
         }
-        let lossless = self.lossless()?.filter(|o| gain(o) >= LOSSLESS_MIN_GAIN);
+        let lossless = self
+            .lossless(original, header)?
+            .filter(|o| gain(o) >= LOSSLESS_MIN_GAIN);
         let best = match (perceptual, lossless) {
             (Some(p), Some(l))
                 if l.bytes.len() as f64 <= p.bytes.len() as f64 * LOSSLESS_PREFERENCE =>
@@ -211,20 +323,19 @@ impl Prepared<'_> {
         Ok(best.map_or(Outcome::Skipped(SkipReason::NoGain), Outcome::Optimized))
     }
 
-    fn with_metadata(&self, jpeg: &[u8], marker: &str) -> Result<Vec<u8>> {
-        let segments =
-            metadata::prepare_segments(self.original, self.options.strip_location, marker)?;
+    fn with_metadata(&self, original: &[u8], jpeg: &[u8], marker: &str) -> Result<Vec<u8>> {
+        let segments = metadata::prepare_segments(original, self.options.strip_location, marker)?;
         metadata::splice(jpeg, &segments)
     }
 
     /// DCT-domain recompression: optimal Huffman + progressive, pixels bit-identical.
-    fn lossless(&self) -> Result<Option<Optimized>> {
+    fn lossless(&self, original: &[u8], header: &HeaderInfo) -> Result<Option<Optimized>> {
         // RGB-coded JPEGs (Adobe transform 0) need their APP14 marker to decode correctly;
         // the transcode keeps their coefficients, but metadata splicing drops APP14.
-        if self.header.adobe_transform == Some(0) && self.header.components.len() == 3 {
+        if header.adobe_transform == Some(0) && header.components.len() == 3 {
             return Ok(None);
         }
-        let Ok(jpeg) = lossless::transcode(self.original) else {
+        let Ok(jpeg) = lossless::transcode(original) else {
             return Ok(None); // an odd-but-decodable file just doesn't get the lossless floor
         };
         let marker = format!("{} lossless", crate::VERSION);
@@ -234,12 +345,13 @@ impl Prepared<'_> {
             worst: 100.0,
         };
         Ok(Some(Optimized {
-            bytes: self.with_metadata(&jpeg, &marker)?,
+            bytes: self.with_metadata(original, &jpeg, &marker)?,
             width: self.pixels.width,
             height: self.pixels.height,
-            quality: self.header.quality_estimate.unwrap_or(100),
+            quality: header.quality_estimate.unwrap_or(100),
             score: identical,
             lossless: true,
+            converted: false,
         }))
     }
 }

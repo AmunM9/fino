@@ -271,8 +271,47 @@ pub fn find_smallest(
     strength: Strength,
     hint: Option<u8>,
 ) -> Result<Option<Candidate>> {
-    let (min_q, max_q) = quality_range(strength);
     let targets = strength.targets();
+    find_smallest_with(pixels, reference, chroma_block, strength, hint, targets)
+}
+
+/// How far below the best reachable score each strength may go, (global, worst tile).
+fn ceiling_margin(strength: Strength) -> (f64, f64) {
+    match strength {
+        Strength::Pristine => (0.5, 1.0),
+        Strength::Identical => (1.5, 3.0),
+        Strength::Compact => (3.0, 6.0),
+    }
+}
+
+/// Targets for sources that are not JPEGs (HEIC): every JPEG of them adds rounding noise, so
+/// the absolute targets can be out of reach even at the top quality. Aim for the best score
+/// actually reachable minus the strength's margin, never above the absolute targets.
+pub fn ceiling_targets(
+    pixels: &Pixels,
+    reference: &Reference,
+    chroma_block: (u8, u8),
+    strength: Strength,
+) -> Result<Targets> {
+    let best = top_quality(pixels, reference, chroma_block, strength)?.score;
+    let absolute = strength.targets();
+    let (global, worst) = ceiling_margin(strength);
+    Ok(Targets {
+        global: absolute.global.min(best.global - global),
+        worst_tile: absolute.worst_tile.min(best.worst - worst),
+    })
+}
+
+/// `find_smallest` against explicit targets.
+pub fn find_smallest_with(
+    pixels: &Pixels,
+    reference: &Reference,
+    chroma_block: (u8, u8),
+    strength: Strength,
+    hint: Option<u8>,
+    targets: Targets,
+) -> Result<Option<Candidate>> {
+    let (min_q, max_q) = quality_range(strength);
     let mut probe = Probe {
         pixels,
         reference,
