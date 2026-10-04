@@ -112,11 +112,19 @@
   height: 100%;
   padding: var(--space-8) var(--space-7) var(--space-7) clamp(40px, 7vw, 96px);
 }
+.running__copy {
+  container-type: inline-size;
+  min-width: 0;
+}
+/* Stays on one line for big batches ("1 842 / 12 480"): shrinks with its column. */
 .running__count {
   margin: var(--space-2) 0 0;
   font-size: clamp(3.5rem, 2rem + 4vw, 5.5rem);
+  /* ~0.6em per glyph: shrink only when the counter would not fit its column. */
+  font-size: min(clamp(3.5rem, 2rem + 4vw, 5.5rem), calc(100cqi / (var(--glyphs, 5) * 0.6)));
   font-weight: 750;
   line-height: 0.95;
+  white-space: nowrap;
 }
 .running__count span {
   color: var(--color-text-3);

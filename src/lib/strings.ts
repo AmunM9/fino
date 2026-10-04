@@ -145,18 +145,18 @@ export const t = {
 
 export const strengthCopy: Record<Strength, { name: string; promise: string; typical: string }> = {
   pristine: {
-    name: "Prístina",
-    promise: "Indistinguible incluso alternando original y resultado.",
+    name: "Impecable",
+    promise: "Ni con lupa notarás la diferencia, aunque alternes original y resultado.",
     typical: "≈ 60 %",
   },
   identical: {
     name: "Idéntica",
-    promise: "Se ve exactamente igual. El punto justo.",
+    promise: "Se ve igual que el original. La recomendada.",
     typical: "≈ 70 %",
   },
   compact: {
     name: "Compacta",
-    promise: "Igual a tamaño normal; para web y envíos.",
+    promise: "Un poco más liviana. Ideal para web, redes y envíos.",
     typical: "≈ 72 %",
   },
 };

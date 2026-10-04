@@ -1,4 +1,5 @@
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
+import type { CSSProperties } from "react";
 import { FolderSearch, Plus, SplitSquareHorizontal, Square, Undo2 } from "lucide-react";
 import { comparableResults } from "../../lib/compare";
 import { formatCount, formatPercent, savedFraction, sizeParts } from "../../lib/format";
@@ -22,7 +23,7 @@ function RunningStage() {
     <section className="running" aria-live="polite">
       <div className="running__copy">
         <p className="eyebrow">{t.session.working}</p>
-        <p className="running__count num">
+        <p className="running__count num" style={{ "--glyphs": `${formatCount(done)} / ${formatCount(session.total)}`.length } as CSSProperties}>
           {formatCount(done)}
           <span> / {formatCount(session.total)}</span>
         </p>
