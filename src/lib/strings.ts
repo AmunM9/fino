@@ -80,6 +80,7 @@ export const t = {
     exportLog: "Exportar CSV",
     empty: "Aún no hay sesiones. Suelta unas fotos para empezar.",
     undoConfirm: "¿Restaurar los originales de esta sesión?",
+    loadMore: (hidden: number) => `Ver sesiones anteriores · ${hidden === 1 ? "1 más" : `${hidden} más`}`,
     nothingToCompare: "Nada que comparar: los archivos se movieron o se borraron",
     discard: "Descartar respaldo",
     discardWithSize: (size: string) => `Descartar respaldo · ${size}`,

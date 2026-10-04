@@ -125,3 +125,22 @@
 .history__actions .icon-btn {
   display: inline-grid;
 }
+
+.history__more {
+  display: block;
+  width: 100%;
+  padding: var(--space-3);
+  border: 0;
+  border-top: 1px solid var(--color-line);
+  background: transparent;
+  color: var(--color-text-2);
+  font-size: var(--text-sm);
+  font-weight: 550;
+  transition:
+    background var(--duration-fast) ease,
+    color var(--duration-fast) ease;
+}
+.history__more:hover {
+  background: var(--color-raised);
+  color: var(--color-text);
+}

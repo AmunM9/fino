@@ -104,7 +104,8 @@ function SessionRow({ session }: { session: SessionEntry }) {
 }
 
 export function HistoryView() {
-  const { history } = useApp();
+  const { history, loadMoreHistory } = useApp();
+  const hiddenSessions = history ? history.totals.sessions - history.sessions.length : 0;
   const totals = history?.totals;
   const saved = sizeParts(totals?.savedBytes ?? 0);
   const avg = totals && totals.originalBytes > 0 ? totals.savedBytes / totals.originalBytes : 0;
@@ -149,6 +150,11 @@ export function HistoryView() {
               ))}
             </tbody>
           </table>
+          {hiddenSessions > 0 && (
+            <button type="button" className="history__more" onClick={loadMoreHistory}>
+              {t.history.loadMore(hiddenSessions)}
+            </button>
+          )}
         </div>
       ) : (
         <p className="page__empty">{t.history.empty}</p>

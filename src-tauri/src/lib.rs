@@ -21,7 +21,7 @@ pub fn run() {
                 let _ = std::fs::remove_dir_all(cache.join("previews"));
             }
             let root = app.path().app_data_dir()?;
-            let store = store::Store::new(root);
+            let store = store::Store::open(root)?;
             if let Err(e) = store.recover_interrupted() {
                 eprintln!("fino: could not recover interrupted sessions: {e}");
             }

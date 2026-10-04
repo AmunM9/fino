@@ -86,14 +86,7 @@ impl Store {
     /// Brings undo state in line with the disk: backups deleted by hand (Finder, cleanup
     /// apps) are forgotten, and a session with none left can no longer be undone.
     pub fn reconcile_backups(&self) -> Result<(), String> {
-        let undoable: Vec<String> = self
-            .history()
-            .sessions
-            .into_iter()
-            .filter(|s| s.can_undo)
-            .map(|s| s.id)
-            .collect();
-        for_each(undoable, |id| {
+        for_each(self.undoable_sessions()?, |id| {
             let Ok(record) = self.record(id) else {
                 return Ok(());
             };
@@ -110,7 +103,7 @@ impl Store {
                     backups: present,
                     ..record.clone()
                 };
-                self.update_session(&updated, &record.summary).map(|_| ())
+                self.save_session(&updated)
             } else {
                 Ok(())
             }
@@ -138,7 +131,7 @@ impl Store {
             backups: vec![],
             ..record.clone()
         };
-        self.update_session(&updated, &record.summary).map(|_| ())
+        self.save_session(&updated)
     }
 }
 
@@ -157,7 +150,7 @@ mod tests {
 
     fn fixture() -> Fixture {
         let dir = tempfile::tempdir().unwrap();
-        let store = Store::new(dir.path().join("data"));
+        let store = Store::open(dir.path().join("data")).unwrap();
         let photos = dir.path().join("photos");
         fs::create_dir_all(&photos).unwrap();
         Fixture {
@@ -182,6 +175,7 @@ mod tests {
                     original,
                     backup,
                     written: None,
+                    output: None,
                 }
             })
             .collect();
@@ -203,7 +197,7 @@ mod tests {
             undone: false,
         };
         f.store
-            .add_session(&SessionRecord {
+            .save_session(&SessionRecord {
                 summary,
                 results: vec![],
                 backups: backups.clone(),
@@ -214,8 +208,8 @@ mod tests {
 
     fn can_undo(store: &Store, id: &str) -> bool {
         let listed = store
-            .history()
-            .sessions
+            .sessions(usize::MAX)
+            .unwrap()
             .iter()
             .any(|s| s.id == id && s.can_undo);
         assert_eq!(listed, store.record(id).unwrap().summary.can_undo);
@@ -238,12 +232,12 @@ mod tests {
     fn discarding_frees_the_folder_and_ends_undo_but_keeps_the_savings() {
         let f = fixture();
         replace_session(&f, "1000", &["a.jpg"]);
-        let before = f.store.history().totals;
+        let before = f.store.totals().unwrap();
         f.store.discard_backup("1000").unwrap();
         assert!(!f.store.backup_dir("1000").unwrap().exists());
         assert!(!can_undo(&f.store, "1000"));
         assert!(f.store.record("1000").unwrap().backups.is_empty());
-        assert_eq!(f.store.history().totals, before);
+        assert_eq!(f.store.totals().unwrap(), before);
         assert!(f.photos.join("a.jpg").exists(), "optimized photo untouched");
         f.store.discard_backup("1000").unwrap(); // idempotent
     }

@@ -143,6 +143,9 @@ pub struct FileResult {
     /// Output decodes to exactly the original pixels (entropy coding only).
     #[serde(default)]
     pub lossless: bool,
+    /// The source was another format (HEIC) and the output is a new JPEG next to it.
+    #[serde(default)]
+    pub converted: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -185,13 +188,6 @@ pub struct Totals {
     pub since: Option<u64>,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct History {
-    pub totals: Totals,
-    pub sessions: Vec<SessionSummary>,
-}
-
 /// A session as the History screen shows it: the stored summary plus what is on disk now.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -223,6 +219,10 @@ pub struct BackupEntry {
     /// What Fino wrote; undo refuses to overwrite a file that no longer matches.
     #[serde(default)]
     pub written: Option<fino_core::files::Fingerprint>,
+    /// Where Fino wrote when it differs from `original` (a HEIC converted to `.jpg`): undo
+    /// removes this file and puts the original back.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub output: Option<PathBuf>,
 }
 
 /// Everything stored about a finished session.

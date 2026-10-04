@@ -4,12 +4,13 @@ import type { FileResult, History, SessionEvent, SessionSummary, Settings } from
 export const ipc = {
   getSettings: () => invoke<Settings>("get_settings"),
   saveSettings: (settings: Settings) => invoke<Settings>("save_settings", { settings }),
-  getHistory: () => invoke<History>("get_history"),
+  /** `limit` = how many sessions (newest first) the History list shows. */
+  getHistory: (limit: number) => invoke<History>("get_history", { limit }),
   sessionResults: (id: string) => invoke<FileResult[]>("session_results", { id }),
   cancelSession: () => invoke<void>("cancel_session"),
-  undoSession: (id: string) => invoke<History>("undo_session", { id }),
-  discardBackup: (id: string) => invoke<History>("discard_backup", { id }),
-  freeBackups: () => invoke<History>("free_backups"),
+  undoSession: (id: string, limit: number) => invoke<History>("undo_session", { id, limit }),
+  discardBackup: (id: string, limit: number) => invoke<History>("discard_backup", { id, limit }),
+  freeBackups: (limit: number) => invoke<History>("free_backups", { limit }),
   exportLog: (id: string, destination: string) => invoke<void>("export_log", { id, destination }),
   takeOpenedPaths: () => invoke<string[]>("take_opened_paths"),
 

@@ -35,11 +35,11 @@ fn session_comparable(store: &Store, id: &str) -> bool {
         .is_ok_and(|record| record.results.iter().any(is_comparable))
 }
 
-pub fn build(store: &Store) -> Overview {
-    let history = store.history();
+/// History page of the newest `limit` sessions, with what is on disk now.
+pub fn build(store: &Store, limit: usize) -> Result<Overview, String> {
     let sizes = store.backup_sizes();
-    let sessions = history
-        .sessions
+    let sessions = store
+        .sessions(limit)?
         .into_iter()
         .map(|summary| SessionView {
             comparable: !summary.undone && session_comparable(store, &summary.id),
@@ -47,11 +47,11 @@ pub fn build(store: &Store) -> Overview {
             summary,
         })
         .collect();
-    Overview {
-        totals: history.totals,
+    Ok(Overview {
+        totals: store.totals()?,
         sessions,
         backup_bytes: sizes.values().sum(),
-    }
+    })
 }
 
 #[cfg(test)]
@@ -87,6 +87,7 @@ mod tests {
             millis: 0,
             preview_path: None,
             lossless: false,
+            converted: false,
         }
     }
 
@@ -133,7 +134,7 @@ mod tests {
     #[test]
     fn overview_reports_comparability_and_backup_space() {
         let dir = tempfile::tempdir().unwrap();
-        let store = Store::new(dir.path().join("data"));
+        let store = Store::open(dir.path().join("data")).unwrap();
         let (original, output) = (dir.path().join("a.jpg"), dir.path().join("b.jpg"));
         fs::write(&original, b"o").unwrap();
         fs::write(&output, b"f").unwrap();
@@ -143,7 +144,7 @@ mod tests {
             ("3", true, Some(original.clone())),
         ] {
             store
-                .add_session(&SessionRecord {
+                .save_session(&SessionRecord {
                     summary: summary(id, undone),
                     results: vec![result(files, output.clone())],
                     backups: vec![],
@@ -154,7 +155,7 @@ mod tests {
         fs::create_dir_all(&backup).unwrap();
         fs::write(backup.join("00000-a.jpg"), b"12345").unwrap();
 
-        let overview = build(&store);
+        let overview = build(&store, 50).unwrap();
         let by_id = |id: &str| {
             overview
                 .sessions

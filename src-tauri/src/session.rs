@@ -110,6 +110,7 @@ fn failed(id: usize, job: &Job, original_bytes: u64, error: String, started: Ins
             millis: started.elapsed().as_millis() as u64,
             preview_path: None,
             lossless: false,
+            converted: false,
         },
         backup: None,
     }
@@ -178,6 +179,7 @@ fn process_bytes(
         millis: 0,
         preview_path: None,
         lossless: false,
+        converted: false,
     };
     let prepared = match fino_core::prepare(data, &options).map_err(|e| e.to_string())? {
         Ok(p) => p,
@@ -241,6 +243,7 @@ fn process_bytes(
                     original: job.path.clone(),
                     backup: b,
                     written: files::fingerprint(&job.path).ok(),
+                    output: None,
                 });
                 if let Some(entry) = &backup {
                     journal(&ctx.backup_dir, entry);

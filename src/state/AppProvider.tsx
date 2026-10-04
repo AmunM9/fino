@@ -8,6 +8,9 @@ import { initialSession, sessionReducer, type SessionState } from "./session";
 
 export type View = "optimize" | "history" | "settings";
 
+/** Sessions per History page. */
+const HISTORY_PAGE = 50;
+
 export interface CompareTarget {
   results: FileResult[];
   index: number;
@@ -27,6 +30,8 @@ interface AppContextValue {
   undoing: boolean;
   /** Re-reads History and the disk (expired or hand-deleted backups, moved files). */
   refreshHistory: () => void;
+  /** Shows the next page of older sessions. */
+  loadMoreHistory: () => void;
   discardBackup: (sessionId: string) => Promise<void>;
   freeBackups: () => Promise<void>;
   /** A discard or free-all is in flight. */
@@ -81,6 +86,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const historySeq = useRef(0);
   /** An undo or a discard is changing backups; background refreshes wait for its result. */
   const mutating = useRef(false);
+  /** How many sessions the History list shows; grows a page at a time. */
+  const historyLimit = useRef(HISTORY_PAGE);
 
   useEffect(() => {
     ipc
@@ -100,8 +107,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const refreshHistory = useCallback(() => {
     if (mutating.current) return;
-    loadHistory(ipc.getHistory).catch((e) => setNotice(errorMessage(e)));
+    loadHistory(() => ipc.getHistory(historyLimit.current)).catch((e) => setNotice(errorMessage(e)));
   }, [loadHistory]);
+
+  const loadMoreHistory = useCallback(() => {
+    historyLimit.current += HISTORY_PAGE;
+    refreshHistory();
+  }, [refreshHistory]);
 
   useEffect(() => refreshHistory(), [refreshHistory]);
 
@@ -157,7 +169,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (!(await confirmReplace(settingsRef.current, paths.length))) return;
       dispatch({ type: "begin" });
       await ipc.optimize(paths, (event) => dispatch({ type: "event", event }));
-      await loadHistory(ipc.getHistory);
+      await loadHistory(() => ipc.getHistory(historyLimit.current));
     } catch (e) {
       dispatch({ type: "fail", error: errorMessage(e) });
       setNotice(errorMessage(e));
@@ -195,11 +207,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setUndoing(true);
       mutating.current = true;
       try {
-        await loadHistory(() => ipc.undoSession(sessionId));
+        await loadHistory(() => ipc.undoSession(sessionId, historyLimit.current));
         if (session.sessionId === sessionId) dispatch({ type: "undone" });
       } catch (e) {
         setNotice(errorMessage(e));
-        await loadHistory(ipc.getHistory).catch(() => undefined);
+        await loadHistory(() => ipc.getHistory(historyLimit.current)).catch(() => undefined);
       } finally {
         mutating.current = false;
         setUndoing(false);
@@ -215,14 +227,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
       await loadHistory(job);
     } catch (e) {
       setNotice(errorMessage(e));
-      await loadHistory(ipc.getHistory).catch(() => undefined);
+      await loadHistory(() => ipc.getHistory(historyLimit.current)).catch(() => undefined);
     } finally {
       mutating.current = false;
       setClearing(false);
     }
   }, [loadHistory]);
-  const discardBackup = useCallback((sessionId: string) => clearBackups(() => ipc.discardBackup(sessionId)), [clearBackups]);
-  const freeBackups = useCallback(() => clearBackups(ipc.freeBackups), [clearBackups]);
+  const discardBackup = useCallback(
+    (sessionId: string) => clearBackups(() => ipc.discardBackup(sessionId, historyLimit.current)),
+    [clearBackups],
+  );
+  const freeBackups = useCallback(() => clearBackups(() => ipc.freeBackups(historyLimit.current)), [clearBackups]);
 
   const value = useMemo<AppContextValue>(
     () => ({
@@ -238,6 +253,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       undo,
       undoing,
       refreshHistory,
+      loadMoreHistory,
       discardBackup,
       freeBackups,
       clearing,
@@ -260,6 +276,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       undo,
       undoing,
       refreshHistory,
+      loadMoreHistory,
       discardBackup,
       freeBackups,
       clearing,

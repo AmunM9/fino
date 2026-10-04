@@ -30,15 +30,23 @@ impl AppState {
 
     /// Fresh History for the UI. Expired or hand-deleted backups are settled first, unless an
     /// undo or a discard is mid-way — that call returns its own fresh overview when done.
-    fn overview(&self) -> Overview {
+    fn overview(&self, limit: Option<u32>) -> Result<Overview, String> {
         if let Ok(_guard) = self.backups.try_lock() {
             let retention = self.store.settings().backup_retention_days;
             if let Err(e) = self.store.maintain_backups(retention, now_millis()) {
                 eprintln!("fino: backup maintenance: {e}");
             }
         }
-        overview::build(&self.store)
+        overview::build(&self.store, page_size(limit))
     }
+}
+
+/// Sessions per History page; the UI asks for more as the user scrolls.
+const HISTORY_PAGE: u32 = 50;
+const HISTORY_MAX: u32 = 10_000;
+
+fn page_size(limit: Option<u32>) -> usize {
+    limit.unwrap_or(HISTORY_PAGE).clamp(1, HISTORY_MAX) as usize
 }
 
 /// Runs `job` off the main thread so disk work never freezes the window.
@@ -102,8 +110,8 @@ pub fn save_settings(
 }
 
 #[tauri::command]
-pub async fn get_history(app: AppHandle) -> Result<Overview, String> {
-    blocking(app, |state| Ok(state.overview())).await
+pub async fn get_history(app: AppHandle, limit: Option<u32>) -> Result<Overview, String> {
+    blocking(app, move |state| state.overview(limit)).await
 }
 
 /// A session's results with vanished files dropped, for the before/after viewer.
@@ -124,26 +132,30 @@ pub fn session_results(
 
 /// Frees one session's backups; it can no longer be undone.
 #[tauri::command]
-pub async fn discard_backup(app: AppHandle, id: String) -> Result<Overview, String> {
+pub async fn discard_backup(
+    app: AppHandle,
+    id: String,
+    limit: Option<u32>,
+) -> Result<Overview, String> {
     blocking(app, move |state| {
         // Only finished sessions: a folder without a record is the session running now.
         state.store.record(&id)?;
         state
             .lock_backups()
             .and_then(|_guard| state.store.discard_backup(&id))?;
-        Ok(state.overview())
+        state.overview(limit)
     })
     .await
 }
 
 /// Frees the backups of every finished session.
 #[tauri::command]
-pub async fn free_backups(app: AppHandle) -> Result<Overview, String> {
-    blocking(app, |state| {
+pub async fn free_backups(app: AppHandle, limit: Option<u32>) -> Result<Overview, String> {
+    blocking(app, move |state| {
         state
             .lock_backups()
             .and_then(|_guard| state.store.discard_all_backups())?;
-        Ok(state.overview())
+        state.overview(limit)
     })
     .await
 }
@@ -199,7 +211,7 @@ pub async fn optimize(
         };
         let record = session::run(&ctx, &paths, &emit);
         if record.summary.photos > 0 {
-            state.store.add_session(&record)?;
+            state.store.save_session(&record)?;
         }
         Ok::<_, String>(record.summary)
     })
@@ -212,7 +224,11 @@ pub async fn optimize(
 /// Puts every replaced original of a session back. Backups whose restore fails are kept
 /// (and the session stays undoable) — undo must never lose an original.
 #[tauri::command]
-pub async fn undo_session(app: AppHandle, id: String) -> Result<Overview, String> {
+pub async fn undo_session(
+    app: AppHandle,
+    id: String,
+    limit: Option<u32>,
+) -> Result<Overview, String> {
     let state = app.state::<AppState>();
     if state.busy.swap(true, Ordering::AcqRel) {
         return Err("Fino is busy; try again when the current task finishes".into());
@@ -221,7 +237,7 @@ pub async fn undo_session(app: AppHandle, id: String) -> Result<Overview, String
         state
             .lock_backups()
             .and_then(|_guard| restore_session(state, &id))?;
-        Ok(state.overview())
+        state.overview(limit)
     })
     .await;
     state.busy.store(false, Ordering::Release);
@@ -273,7 +289,7 @@ fn restore_session(state: &AppState, id: &str) -> Result<(), String> {
         optimized: previous.optimized.saturating_sub(restored_paths.len()),
         ..previous.clone()
     };
-    state.store.update_session(&record, &previous)?;
+    state.store.save_session(&record)?;
     if failures.is_empty() {
         Ok(())
     } else {
