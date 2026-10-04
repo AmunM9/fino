@@ -1,0 +1,243 @@
+/* ---------- Buttons ---------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 36px;
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--color-line-strong);
+  background: transparent;
+  color: var(--color-text);
+  font-size: var(--text-sm);
+  font-weight: 550;
+  letter-spacing: 0.005em;
+  white-space: nowrap;
+  transition:
+    background var(--duration-fast) ease,
+    border-color var(--duration-fast) ease,
+    transform var(--duration-fast) var(--ease-out-expo);
+}
+.btn:hover {
+  background: var(--color-raised);
+  border-color: var(--color-text-3);
+}
+.btn:active {
+  transform: scale(0.97);
+}
+.btn:disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+.btn svg {
+  width: 16px;
+  height: 16px;
+  stroke-width: 1.75;
+}
+
+.btn--primary {
+  background: var(--color-text);
+  border-color: var(--color-text);
+  color: var(--color-bg);
+}
+.btn--primary:hover {
+  background: color-mix(in oklch, var(--color-text) 88%, var(--color-bg));
+  border-color: transparent;
+}
+
+.btn--signal {
+  background: var(--color-signal);
+  border-color: var(--color-signal);
+  color: var(--color-signal-ink);
+}
+.btn--signal:hover {
+  background: color-mix(in oklch, var(--color-signal) 88%, white);
+  border-color: transparent;
+}
+
+.btn--ghost {
+  border-color: transparent;
+  color: var(--color-text-2);
+  padding: 0 var(--space-3);
+}
+.btn--ghost:hover {
+  color: var(--color-text);
+  border-color: transparent;
+}
+.btn--danger:hover {
+  border-color: color-mix(in oklch, var(--color-danger) 55%, transparent);
+  color: var(--color-danger);
+}
+
+.icon-btn {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  border: 0;
+  background: transparent;
+  color: var(--color-text-2);
+  transition: background var(--duration-fast) ease, color var(--duration-fast) ease;
+}
+.icon-btn:hover {
+  background: var(--color-raised);
+  color: var(--color-text);
+}
+/* Disabled keeps pointer events so its tooltip can still explain why. */
+.icon-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.icon-btn:disabled:hover {
+  background: transparent;
+  color: var(--color-text-2);
+}
+.icon-btn--danger:not(:disabled):hover {
+  background: color-mix(in oklch, var(--color-danger) 14%, transparent);
+  color: var(--color-danger);
+}
+.icon-btn svg {
+  width: 17px;
+  height: 17px;
+  stroke-width: 1.75;
+}
+
+/* ---------- Toggle ---------- */
+.toggle {
+  position: relative;
+  flex: none;
+  width: 36px;
+  height: 22px;
+  border-radius: var(--radius-pill);
+  border: 0;
+  padding: 0;
+  background: var(--color-line-strong);
+  transition: background var(--duration-normal) var(--ease-out-expo);
+}
+.toggle::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--color-text);
+  box-shadow: 0 1px 2px oklch(0% 0 0 / 0.3);
+  transition: transform var(--duration-normal) var(--ease-spring);
+}
+.toggle[aria-checked="true"] {
+  background: var(--color-signal);
+}
+.toggle[aria-checked="true"]::after {
+  transform: translateX(14px);
+  background: var(--color-signal-ink);
+}
+
+/* ---------- Segmented control ---------- */
+.segmented {
+  display: inline-grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  padding: 3px;
+  border-radius: var(--radius-md);
+  background: var(--color-sunken);
+  border: 1px solid var(--color-line);
+}
+.segmented button {
+  height: 30px;
+  padding: 0 var(--space-4);
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--color-text-2);
+  font-size: var(--text-sm);
+  font-weight: 550;
+  transition: background var(--duration-fast) ease, color var(--duration-fast) ease;
+}
+.segmented button:not([aria-checked="true"]):hover {
+  color: var(--color-text);
+}
+.segmented button[aria-checked="true"] {
+  background: var(--color-raised);
+  color: var(--color-text);
+  box-shadow: var(--shadow-lift);
+}
+.segmented[data-icons="true"] {
+  padding: 2px;
+}
+.segmented[data-icons="true"] button {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 24px;
+  padding: 0;
+}
+.segmented[data-icons="true"] svg {
+  width: 15px;
+  height: 15px;
+  stroke-width: 1.75;
+}
+
+/* ---------- Notice ---------- */
+.notice {
+  position: fixed;
+  left: 50%;
+  bottom: var(--space-5);
+  z-index: 50;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  max-width: min(560px, calc(100vw - 48px));
+  padding: var(--space-3) var(--space-3) var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--color-raised);
+  border: 1px solid var(--color-line-strong);
+  box-shadow: var(--shadow-lift);
+  transform: translateX(-50%);
+  animation: notice-in var(--duration-slow) var(--ease-out-expo);
+}
+.notice p {
+  margin: 4px 0 0;
+  font-size: var(--text-sm);
+  color: var(--color-text);
+  white-space: pre-line;
+  user-select: text;
+}
+.notice svg.notice__icon {
+  flex: none;
+  margin-top: 4px;
+  width: 16px;
+  height: 16px;
+  color: var(--color-danger);
+}
+@keyframes notice-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 12px);
+  }
+}
+
+/* ---------- Badges ---------- */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 20px;
+  padding: 0 7px;
+  border-radius: var(--radius-pill);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  background: var(--color-raised);
+  color: var(--color-text-2);
+}
+.badge--signal {
+  background: var(--color-signal-soft);
+  color: var(--color-signal);
+}
+.badge--danger {
+  background: color-mix(in oklch, var(--color-danger) 16%, transparent);
+  color: var(--color-danger);
+}

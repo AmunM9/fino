@@ -1,0 +1,106 @@
+/*
+ * Fino design tokens.
+ * Direction: "darkroom instrument" — a quiet graphite surface that never
+ * competes with the photos, one citrus signal color that only ever means
+ * "bytes saved", and big confident numerals.
+ */
+:root {
+  color-scheme: dark;
+
+  /* Surfaces (graphite, faintly cool) */
+  --color-bg: oklch(15.5% 0.006 255);
+  --color-panel: oklch(19.5% 0.009 255);
+  --color-raised: oklch(23.5% 0.011 255);
+  --color-sunken: oklch(13% 0.005 255);
+  --color-line: oklch(28% 0.012 255);
+  --color-line-strong: oklch(36% 0.014 255);
+
+  /* Text */
+  --color-text: oklch(95% 0.004 255);
+  --color-text-2: oklch(74% 0.012 255);
+  --color-text-3: oklch(56% 0.012 255);
+  --color-display: oklch(72% 0.018 260);
+
+  /* Signal: savings. Used only for "you saved bytes" meaning. */
+  --color-signal: oklch(88% 0.17 128);
+  --color-signal-ink: oklch(22% 0.05 128);
+  --color-signal-soft: oklch(88% 0.17 128 / 0.14);
+
+  /* Semantic */
+  --color-warn: oklch(82% 0.14 78);
+  --color-danger: oklch(70% 0.17 25);
+  --color-focus: oklch(80% 0.12 230);
+
+  /* Typography */
+  --font-display: "Bricolage Grotesque Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-ui: "Geist Variable", ui-sans-serif, system-ui, -apple-system, sans-serif;
+
+  --text-xs: 0.6875rem;
+  --text-sm: 0.8125rem;
+  --text-base: 0.875rem;
+  --text-md: 1rem;
+  --text-lg: 1.25rem;
+  --text-xl: 1.75rem;
+  --text-2xl: 2.5rem;
+  --text-hero: clamp(3.5rem, 1rem + 7vw, 7rem);
+
+  /* Spacing (4px base, deliberately uneven at the top end) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 72px;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-pill: 999px;
+
+  --shadow-lift: 0 1px 0 oklch(100% 0 0 / 0.04) inset, 0 12px 32px -12px oklch(0% 0 0 / 0.6);
+  --shadow-photo: 0 2px 4px oklch(0% 0 0 / 0.3), 0 18px 40px -10px oklch(0% 0 0 / 0.65);
+
+  --duration-fast: 140ms;
+  --duration-normal: 260ms;
+  --duration-slow: 520ms;
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+
+  --rail-width: 64px;
+  --panel-width: 300px;
+  --titlebar-height: 40px;
+}
+
+/* Light theme. `data-theme` is set before first paint (public/theme-boot.js) from the
+   user's choice in Ajustes, or from macOS when it is "Sistema". */
+:root[data-theme="light"] {
+  color-scheme: light;
+  --color-bg: oklch(97.4% 0.004 95);
+  --color-panel: oklch(99.2% 0.002 95);
+  --color-raised: oklch(94.5% 0.005 95);
+  --color-sunken: oklch(95.5% 0.004 95);
+  --color-line: oklch(89% 0.006 95);
+  --color-line-strong: oklch(82% 0.008 95);
+  --color-text: oklch(20% 0.012 255);
+  --color-text-2: oklch(42% 0.012 255);
+  --color-text-3: oklch(58% 0.01 255);
+  --color-display: oklch(30% 0.02 260);
+  --color-signal: oklch(62% 0.17 135);
+  --color-signal-ink: oklch(98% 0.02 128);
+  --color-signal-soft: oklch(62% 0.17 135 / 0.12);
+  --color-warn: oklch(62% 0.15 70);
+  --color-danger: oklch(56% 0.19 25);
+  --color-focus: oklch(55% 0.15 240);
+  --shadow-lift: 0 1px 2px oklch(0% 0 0 / 0.06), 0 12px 32px -16px oklch(0% 0 0 / 0.18);
+  --shadow-photo: 0 2px 4px oklch(0% 0 0 / 0.1), 0 18px 40px -12px oklch(0% 0 0 / 0.3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-fast: 0ms;
+    --duration-normal: 0ms;
+    --duration-slow: 0ms;
+  }
+}
