@@ -170,7 +170,7 @@ export function SettingsView() {
         <Field title={t.settings.skipOptimized} hint={t.settings.skipOptimizedHint}>
           <Toggle label={t.settings.skipOptimized} checked={settings.skipOptimized} onChange={(v) => updateSettings({ skipOptimized: v })} />
         </Field>
-        <Field title={t.settings.convertHeic} hint={settings.heicToJpeg ? t.settings.convertHeicOn : t.settings.convertHeicOff}>
+        <Field title={t.settings.convertHeic} hint={t.settings.convertHeicHint}>
           <Toggle label={t.settings.convertHeic} checked={settings.heicToJpeg} onChange={(v) => updateSettings({ heicToJpeg: v })} />
         </Field>
       </div>

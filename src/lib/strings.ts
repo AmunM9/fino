@@ -68,6 +68,8 @@ export const t = {
     badge: "HEIC → JPEG",
     hint: "Convertida de HEIC a JPEG Compacta para compartir: cambio de tamaño frente al HEIC.",
     count: (n: number) => (n === 1 ? "1 convertida de HEIC" : `${n} convertidas de HEIC`),
+    skippedNotice: (n: number) =>
+      `${n === 1 ? "1 foto HEIC se omitió" : `${n} fotos HEIC se omitieron`}. Para convertirlas a JPEG, activa «Convertir HEIC a JPEG» en Ajustes.`,
   },
 
   lossless: "Sin pérdida",
@@ -154,9 +156,8 @@ export const t = {
     skipOptimized: "Omitir fotos ya optimizadas",
     skipOptimizedHint: "Fino marca sus archivos para no recomprimirlos dos veces.",
     convertHeic: "Convertir HEIC a JPEG",
-    convertHeicOff: "Las fotos HEIC se dejan como están: ya son el formato más liviano.",
-    convertHeicOn:
-      "Para compartir: se convierten en JPEG en intensidad Compacta. Se quitan el HDR, la profundidad y los datos de retrato; el archivo puede crecer.",
+    convertHeicHint:
+      "Se convierten en JPEG en intensidad Compacta. Se quitan el HDR, la profundidad y los datos de retrato; el archivo puede crecer.",
     theme: "Tema",
     themes: { system: "Tema del sistema", light: "Tema claro", dark: "Tema oscuro" },
   },

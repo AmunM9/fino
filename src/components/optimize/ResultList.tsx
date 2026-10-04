@@ -32,7 +32,7 @@ function ConversionBadge({ result }: { result: FileResult }) {
   const change = result.originalBytes > 0 ? result.outputBytes / result.originalBytes - 1 : 0;
   const sign = change > 0 ? "+" : change < 0 ? "−" : "";
   return (
-    <span className="badge badge--convert num" title={t.convert.hint}>
+    <span className={`badge num ${change < 0 ? "badge--signal" : "badge--convert"}`} title={t.convert.hint}>
       {t.convert.badge} {sign}
       {formatPercent(Math.abs(change))}
     </span>
