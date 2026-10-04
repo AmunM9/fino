@@ -1,0 +1,19 @@
+[workspace]
+resolver = "2"
+members = ["src-tauri", "crates/fino-core", "crates/fino-cli"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = 3
+strip = true
+# No `panic = "abort"`: libjpeg errors surface as unwinding panics that we catch.
+
+[profile.dev.package."*"]
+# Image codecs are unusably slow unoptimized, even in debug builds.
+opt-level = 3
