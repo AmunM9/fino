@@ -55,6 +55,8 @@ enum Source<'a> {
     Jpeg {
         original: &'a [u8],
         header: HeaderInfo,
+        /// MPF images after the primary (HDR gain map…), re-attached byte for byte.
+        secondaries: Vec<mpf::MpImage>,
     },
     Converted(Converted),
 }
@@ -92,9 +94,6 @@ fn precheck(data: &[u8], header: &HeaderInfo, options: &OptimizeOptions) -> Opti
     if header.width as u64 * header.height as u64 > options.max_pixels {
         return Some(SkipReason::TooLarge);
     }
-    if metadata::has_gain_map(data) {
-        return Some(SkipReason::HdrGainMap);
-    }
     if metadata::has_embedded_media(data) {
         return Some(SkipReason::EmbeddedMedia);
     }
@@ -116,6 +115,15 @@ pub fn prepare<'a>(
     if let Some(reason) = precheck(data, &header, options) {
         return Ok(Err(reason));
     }
+    // A gain map can only travel if its MPF index is readable; otherwise leave the file be.
+    let secondaries = if metadata::has_gain_map(data) {
+        match mpf::secondary_images(data) {
+            Ok(images) if !images.is_empty() => images,
+            _ => return Ok(Err(SkipReason::HdrGainMap)),
+        }
+    } else {
+        vec![]
+    };
     let pixels = codec::decode(data, header.is_grayscale())?;
     if (pixels.width, pixels.height) != (header.width, header.height) {
         return Err(FinoError::Decode("decoded size differs from header".into()));
@@ -125,6 +133,7 @@ pub fn prepare<'a>(
         source: Source::Jpeg {
             original: data,
             header,
+            secondaries,
         },
         pixels,
         orientation,
@@ -178,7 +187,11 @@ impl<'a> Prepared<'a> {
     /// Renders the source at `size` (`None` = original dimensions).
     pub fn render(&self, size: Option<Resize>) -> Result<Outcome> {
         match &self.source {
-            Source::Jpeg { original, header } => self.render_jpeg(original, header, size),
+            Source::Jpeg {
+                original,
+                header,
+                secondaries,
+            } => self.render_jpeg(original, header, secondaries, size),
             Source::Converted(c) => self.render_converted(c, size),
         }
     }
@@ -241,6 +254,7 @@ impl<'a> Prepared<'a> {
         &self,
         original: &[u8],
         header: &HeaderInfo,
+        secondaries: &[mpf::MpImage],
         size: Option<Resize>,
     ) -> Result<Outcome> {
         let target = size.and_then(|r| {
@@ -260,7 +274,7 @@ impl<'a> Prepared<'a> {
         if !is_resized && already_compressed {
             let original_len = original.len() as f64;
             let lossless = self
-                .lossless(original, header)?
+                .lossless(original, header, secondaries)?
                 .filter(|o| 1.0 - o.bytes.len() as f64 / original_len >= LOSSLESS_MIN_GAIN);
             return Ok(lossless.map_or(Outcome::Skipped(SkipReason::NoGain), Outcome::Optimized));
         }
@@ -284,7 +298,7 @@ impl<'a> Prepared<'a> {
             Some(c) => {
                 let marker = format!("{} q={} s={:.1}", crate::VERSION, c.quality, c.score.global);
                 Some(Optimized {
-                    bytes: self.with_metadata(original, &c.jpeg, &marker)?,
+                    bytes: self.with_metadata(original, secondaries, &c.jpeg, &marker)?,
                     width: pixels.width,
                     height: pixels.height,
                     quality: c.quality,
@@ -309,7 +323,7 @@ impl<'a> Prepared<'a> {
             return Ok(Outcome::Optimized(perceptual.expect("checked above")));
         }
         let lossless = self
-            .lossless(original, header)?
+            .lossless(original, header, secondaries)?
             .filter(|o| gain(o) >= LOSSLESS_MIN_GAIN);
         let best = match (perceptual, lossless) {
             (Some(p), Some(l))
@@ -323,13 +337,26 @@ impl<'a> Prepared<'a> {
         Ok(best.map_or(Outcome::Skipped(SkipReason::NoGain), Outcome::Optimized))
     }
 
-    fn with_metadata(&self, original: &[u8], jpeg: &[u8], marker: &str) -> Result<Vec<u8>> {
+    /// The source's metadata plus Fino's marker on `jpeg`, with the source's MPF secondaries
+    /// (HDR gain map) appended unchanged.
+    fn with_metadata(
+        &self,
+        original: &[u8],
+        secondaries: &[mpf::MpImage],
+        jpeg: &[u8],
+        marker: &str,
+    ) -> Result<Vec<u8>> {
         let segments = metadata::prepare_segments(original, self.options.strip_location, marker)?;
-        metadata::splice(jpeg, &segments)
+        mpf::append(&metadata::splice(jpeg, &segments)?, secondaries)
     }
 
     /// DCT-domain recompression: optimal Huffman + progressive, pixels bit-identical.
-    fn lossless(&self, original: &[u8], header: &HeaderInfo) -> Result<Option<Optimized>> {
+    fn lossless(
+        &self,
+        original: &[u8],
+        header: &HeaderInfo,
+        secondaries: &[mpf::MpImage],
+    ) -> Result<Option<Optimized>> {
         // RGB-coded JPEGs (Adobe transform 0) need their APP14 marker to decode correctly;
         // the transcode keeps their coefficients, but metadata splicing drops APP14.
         if header.adobe_transform == Some(0) && header.components.len() == 3 {
@@ -345,7 +372,7 @@ impl<'a> Prepared<'a> {
             worst: 100.0,
         };
         Ok(Some(Optimized {
-            bytes: self.with_metadata(original, &jpeg, &marker)?,
+            bytes: self.with_metadata(original, secondaries, &jpeg, &marker)?,
             width: self.pixels.width,
             height: self.pixels.height,
             quality: header.quality_estimate.unwrap_or(100),

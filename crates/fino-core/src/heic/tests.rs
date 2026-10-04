@@ -179,3 +179,19 @@ fn every_strength_produces_a_jpeg_and_stricter_is_never_smaller() {
         .collect();
     assert!(sizes[0] >= sizes[1] && sizes[1] >= sizes[2], "{sizes:?}");
 }
+
+#[test]
+fn iphone_jpegs_with_a_gain_map_are_optimized_and_keep_their_hdr() {
+    let source = fixture("gainmap.jpg");
+    let Outcome::Optimized(o) = optimize(&source, &OptimizeOptions::default()).unwrap() else {
+        panic!("an HDR JPEG is optimized now, not skipped");
+    };
+    assert!(!o.converted);
+    let aux = aux_present(&o.bytes);
+    assert!(aux.iter().any(|k| k.contains("HDRGainMap")), "aux: {aux:?}");
+    assert_eq!(
+        jpeg::mpf::secondary_images(&o.bytes).unwrap(),
+        jpeg::mpf::secondary_images(&source).unwrap(),
+        "gain map carried byte for byte"
+    );
+}

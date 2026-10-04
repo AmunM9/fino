@@ -8,6 +8,7 @@
 //   plain.heic      the same plus an XMP property in a namespace ImageIO does not know;
 //                   here only `irot` carries the rotation (no EXIF Orientation tag)
 //   gainmap.heic    Apple HDR gain map (+ MakerNote 33/48 that make it apply)
+//   gainmap.jpg     the same as an iPhone JPEG: primary + MPF gain map
 //   hlg.heic        10-bit HLG primary image (HDR a JPEG cannot hold)
 //   isogainmap.heic ISO 21496-1 gain map (macOS 15+ only; skipped elsewhere)
 import CoreGraphics
@@ -78,8 +79,9 @@ write("plain.heic") { dest in
                                            kCGImagePropertyOrientation: 6] as CFDictionary)
 }
 
-// gainmap.heic: Apple HDR gain map, a quarter-resolution 8-bit luminance plane
-write("gainmap.heic") { dest in
+// gainmap.heic / gainmap.jpg: Apple HDR gain map, a quarter-resolution 8-bit plane
+// (the JPEG is what an iPhone writes in "Most Compatible" mode: MPF primary + gain map)
+func addGainMap(_ dest: CGImageDestination) {
     let gw = width / 2, gh = height / 2
     var plane = [UInt8](repeating: 0, count: gw * gh)
     for y in 0..<gh { for x in 0..<gw { plane[y * gw + x] = UInt8((x * 255) / gw) } }
@@ -98,6 +100,14 @@ write("gainmap.heic") { dest in
     let props: [CFString: Any] = [kCGImagePropertyMakerAppleDictionary: ["33": 1.0, "48": 0.01]]
     CGImageDestinationAddImage(dest, base, props as CFDictionary)
     CGImageDestinationAddAuxiliaryDataInfo(dest, kCGImageAuxiliaryDataTypeHDRGainMap, info as CFDictionary)
+}
+write("gainmap.heic", addGainMap)
+do {
+    let url = outDir.appendingPathComponent("gainmap.jpg")
+    let dest = CGImageDestinationCreateWithURL(url as CFURL, "public.jpeg" as CFString, 1, nil)!
+    addGainMap(dest)
+    guard CGImageDestinationFinalize(dest) else { fatalError("could not write gainmap.jpg") }
+    print("wrote gainmap.jpg")
 }
 
 // hlg.heic: 16-bit HLG pixels → 10-bit HEIC with nclx transfer 18

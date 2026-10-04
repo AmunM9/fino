@@ -161,8 +161,8 @@ pub fn splice(encoded: &[u8], segments: &[Segment]) -> Result<Vec<u8>> {
     Ok(out)
 }
 
-/// HDR gain maps (Ultra HDR, Adobe, Apple) live in auxiliary images after EOI.
-/// Re-encoding would silently drop the HDR rendition, so such files are skipped.
+/// HDR gain maps (Ultra HDR, Adobe, Apple) live in auxiliary images after EOI, indexed by
+/// MPF; the optimizer re-attaches them unchanged (see `jpeg::mpf`).
 pub fn has_gain_map(data: &[u8]) -> bool {
     const NEEDLES: [&[u8]; 3] = [b"hdrgm", b"HDRGainMap", b"aux:hdrgainmap"];
     NEEDLES
@@ -182,12 +182,9 @@ fn primary_image_end(data: &[u8]) -> Option<usize> {
 /// Motion Photos and similar formats append an MP4 (or other media) after the image;
 /// a re-encode would silently delete the video.
 pub fn has_embedded_media(data: &[u8]) -> bool {
-    const XMP_HINTS: [&[u8]; 4] = [
-        b"MotionPhoto",
-        b"MicroVideo",
-        b"Container:Directory",
-        b"MotionPhoto_Data",
-    ];
+    // `Container:Directory` alone is not a hint: Ultra HDR uses the same container to list
+    // its gain map, and that is an image Fino carries over.
+    const XMP_HINTS: [&[u8]; 3] = [b"MotionPhoto", b"MicroVideo", b"MotionPhoto_Data"];
     if XMP_HINTS
         .iter()
         .any(|n| memchr::memmem::find(data, n).is_some())
