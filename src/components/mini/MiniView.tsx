@@ -55,11 +55,15 @@ export function MiniView({ isOver }: { isOver: boolean }) {
     : [];
   const fraction = savedFraction(stats.originalBytes, stats.outputBytes);
 
+  // The mini window has no result list, so HEIC left alone is said here instead.
+  const heicSkipped = session.results.filter((r) => r.skipReason === "conversionOff").length;
   const footer = running
     ? t.mini.progress(formatCount(stats.processed), formatCount(session.total))
-    : done && stats.savedBytes > 0
-      ? t.mini.done(formatCount(stats.optimized), formatPercent(fraction))
-      : t.mini.drop;
+    : done && heicSkipped > 0
+      ? t.convert.skippedMini(heicSkipped)
+      : done && stats.savedBytes > 0
+        ? t.mini.done(formatCount(stats.optimized), formatPercent(fraction))
+        : t.mini.drop;
 
   return (
     <div className="mini" data-phase={session.phase} data-over={isOver} data-photo={previews.length > 0} data-tauri-drag-region>

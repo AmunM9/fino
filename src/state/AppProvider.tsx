@@ -201,14 +201,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try {
       if (!(await confirmReplace(paths.length))) return;
       dispatch({ type: "begin" });
-      let heicLeftAlone = 0;
-      await ipc.optimize(paths, (event) => {
-        if (event.kind === "file" && event.result.skipReason === "conversionOff") heicLeftAlone += 1;
-        dispatch({ type: "event", event });
-      });
-      // HEIC conversion is off by default: say so, and where to turn it on, instead of a
-      // silent skip. A notice, not a question — the batch already went the safe way.
-      if (heicLeftAlone > 0) setNotice(t.convert.skippedNotice(heicLeftAlone));
+      await ipc.optimize(paths, (event) => dispatch({ type: "event", event }));
       await loadHistory(() => ipc.getHistory(historyLimit.current));
     } catch (e) {
       dispatch({ type: "fail", error: errorMessage(e) });

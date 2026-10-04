@@ -68,8 +68,7 @@ export const t = {
     badge: "HEIC → JPEG",
     hint: "Convertida de HEIC a JPEG Compacta para compartir: cambio de tamaño frente al HEIC.",
     count: (n: number) => (n === 1 ? "1 convertida de HEIC" : `${n} convertidas de HEIC`),
-    skippedNotice: (n: number) =>
-      `${n === 1 ? "1 foto HEIC se omitió" : `${n} fotos HEIC se omitieron`}. Para convertirlas a JPEG, activa «Convertir HEIC a JPEG» en Ajustes.`,
+    skippedMini: (n: number) => `${n === 1 ? "1 HEIC omitida" : `${n} HEIC omitidas`} · actívalas en Ajustes`,
   },
 
   lossless: "Sin pérdida",
@@ -199,5 +198,5 @@ export const skipCopy: Record<SkipReason, string> = {
   embeddedMedia: "Contiene video (Motion Photo)",
   hdrPhoto: "HDR que un JPEG no puede guardar",
   spatialPhoto: "Foto espacial (3D)",
-  conversionOff: "HEIC: ya es el formato más liviano",
+  conversionOff: "HEIC: conversión desactivada (Ajustes)",
 };
