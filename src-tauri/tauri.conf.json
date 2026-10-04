@@ -19,7 +19,10 @@
         "minHeight": 580,
         "titleBarStyle": "Overlay",
         "hiddenTitle": true,
-        "trafficLightPosition": { "x": 20, "y": 24 },
+        "trafficLightPosition": {
+          "x": 20,
+          "y": 24
+        },
         "backgroundColor": "#111317",
         "dragDropEnabled": true
       }
@@ -43,7 +46,10 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["app", "dmg"],
+    "targets": [
+      "app",
+      "dmg"
+    ],
     "category": "Photography",
     "shortDescription": "Smaller photos that look exactly the same",
     "copyright": "© 2026 Fino",
@@ -56,10 +62,40 @@
     ],
     "fileAssociations": [
       {
-        "ext": ["jpg", "jpeg", "jpe", "jfif"],
+        "ext": [
+          "jpg",
+          "jpeg",
+          "jpe",
+          "jfif"
+        ],
+        "contentTypes": [
+          "public.jpeg"
+        ],
         "name": "JPEG image",
-        "mimeType": "image/jpeg",
         "role": "Editor",
+        "rank": "Alternate"
+      },
+      {
+        "ext": [
+          "heic",
+          "heif",
+          "hif"
+        ],
+        "contentTypes": [
+          "public.heic",
+          "public.heif"
+        ],
+        "name": "HEIC image",
+        "role": "Editor",
+        "rank": "Alternate"
+      },
+      {
+        "ext": [],
+        "contentTypes": [
+          "public.folder"
+        ],
+        "name": "Folder",
+        "role": "Viewer",
         "rank": "Alternate"
       }
     ],
