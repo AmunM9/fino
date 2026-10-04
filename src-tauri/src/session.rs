@@ -316,7 +316,12 @@ fn export_live_video(source: &Path, written: &Path) {
     let extension = video.extension().unwrap_or_default();
     let dest = written.with_extension(extension);
     if !dest.exists() {
-        let _ = files::export(&video, &dest, &std::fs::read(&video).unwrap_or_default());
+        if let Err(e) = files::copy_file(&video, &dest) {
+            eprintln!(
+                "fino: could not copy Live Photo video {}: {e}",
+                video.display()
+            );
+        }
     }
 }
 

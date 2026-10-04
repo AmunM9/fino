@@ -68,13 +68,17 @@ fn rotation_travels_in_exif_like_an_iphone_jpeg() {
 }
 
 #[test]
-fn rotation_without_an_exif_tag_is_baked_into_the_pixels() {
+fn rotation_without_an_exif_tag_gets_one_and_pixels_stay_as_stored() {
     let jpeg = converted("plain.heic");
     let pixels = codec::decode(&jpeg, false).unwrap();
-    assert_eq!((pixels.width, pixels.height), (192, 256), "upright pixels");
+    assert_eq!((pixels.width, pixels.height), (256, 192));
     let segments = metadata::metadata_segments(&jpeg).unwrap();
     let tiff = segment(&segments, metadata::EXIF_HEADER).expect("EXIF");
-    assert!(matches!(exif::orientation(tiff), None | Some(1)));
+    assert_eq!(
+        exif::orientation(tiff),
+        Some(6),
+        "tag added to the copied EXIF"
+    );
 }
 
 #[test]

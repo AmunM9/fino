@@ -39,6 +39,22 @@ impl Tiff {
         })
     }
 
+    fn u16_bytes(self, v: u16) -> [u8; 2] {
+        if self.big_endian {
+            v.to_be_bytes()
+        } else {
+            v.to_le_bytes()
+        }
+    }
+
+    fn u32_bytes(self, v: u32) -> [u8; 4] {
+        if self.big_endian {
+            v.to_be_bytes()
+        } else {
+            v.to_le_bytes()
+        }
+    }
+
     fn put_u16(self, b: &mut [u8], at: usize, v: u16) {
         let bytes = if self.big_endian {
             v.to_be_bytes()
@@ -111,6 +127,57 @@ pub fn set_orientation(tiff: &mut [u8], value: u16) -> bool {
         }
         _ => false,
     }
+}
+
+/// `tiff` with IFD0's orientation set to `value`: patched in place when the tag exists,
+/// otherwise IFD0 is rewritten — with the new entry in tag order — at the end of the block
+/// and the header pointed at it. Every other offset is absolute and stays valid. `None` if
+/// the EXIF is malformed.
+pub fn with_orientation(tiff: &[u8], value: u16) -> Option<Vec<u8>> {
+    let mut out = tiff.to_vec();
+    if set_orientation(&mut out, value) {
+        return Some(out);
+    }
+    let t = byte_order(tiff).ok()?;
+    let ifd0 = t.u32(tiff, 4).ok()? as usize;
+    let count = t.u16(tiff, ifd0).ok()? as usize;
+    let entries_end = ifd0 + 2 + count * ENTRY_SIZE;
+    let entries = tiff.get(ifd0 + 2..entries_end)?;
+    let next_ifd = tiff.get(entries_end..entries_end + 4)?;
+    let mut table: Vec<&[u8]> = entries.chunks(ENTRY_SIZE).collect();
+    let mut orientation = Vec::with_capacity(ENTRY_SIZE);
+    orientation.extend_from_slice(&t.u16_bytes(ORIENTATION));
+    orientation.extend_from_slice(&t.u16_bytes(3)); // SHORT
+    orientation.extend_from_slice(&t.u32_bytes(1));
+    orientation.extend_from_slice(&t.u16_bytes(value));
+    orientation.extend_from_slice(&[0, 0]);
+    let at = table
+        .iter()
+        .position(|e| t.u16(e, 0).is_ok_and(|tag| tag > ORIENTATION))
+        .unwrap_or(table.len());
+    table.insert(at, &orientation);
+    if out.len() % 2 == 1 {
+        out.push(0); // IFDs start on a word boundary
+    }
+    let new_ifd = out.len() as u32;
+    out.extend_from_slice(&t.u16_bytes(table.len() as u16));
+    for entry in table {
+        out.extend_from_slice(entry);
+    }
+    out.extend_from_slice(next_ifd);
+    out[4..8].copy_from_slice(&t.u32_bytes(new_ifd));
+    Some(out)
+}
+
+/// A minimal EXIF block holding only an orientation, for sources that carry no EXIF.
+pub fn orientation_only(value: u16) -> Vec<u8> {
+    let mut out = b"MM\0*\0\0\0\x08\0\x01".to_vec();
+    out.extend_from_slice(&ORIENTATION.to_be_bytes());
+    out.extend_from_slice(&3u16.to_be_bytes());
+    out.extend_from_slice(&1u32.to_be_bytes());
+    out.extend_from_slice(&value.to_be_bytes());
+    out.extend_from_slice(&[0, 0, 0, 0, 0, 0]); // value padding + no next IFD
+    out
 }
 
 /// `tiff` is the EXIF payload after the `Exif\0\0` header.
@@ -197,6 +264,42 @@ mod tests {
         );
         assert!(b[100..108].iter().all(|&x| x == 0), "latitude wiped");
         assert!(b[60..78].iter().all(|&x| x == 0), "GPS IFD wiped");
+    }
+
+    #[test]
+    fn adds_a_missing_orientation_without_moving_other_data() {
+        let mut b = sample();
+        // Drop the orientation entry: IFD0 becomes [GPS pointer, Make].
+        b.copy_within(22..50, 10);
+        b[8..10].copy_from_slice(&2u16.to_le_bytes());
+        assert_eq!(orientation(&b), None);
+
+        let out = with_orientation(&b, 8).unwrap();
+        assert_eq!(orientation(&out), Some(8));
+        assert_eq!(out[..4], b[..4]);
+        assert_eq!(
+            out[8..b.len()],
+            b[8..],
+            "old bytes untouched: only the IFD0 pointer moved"
+        );
+        let mut stripped = out.clone();
+        strip_gps(&mut stripped).unwrap(); // GPS still reachable through the new IFD0
+        assert!(stripped[100..108].iter().all(|&x| x == 0));
+        assert_eq!(orientation(&stripped), Some(8));
+    }
+
+    #[test]
+    fn existing_orientation_is_patched_and_bare_blocks_can_be_made() {
+        assert_eq!(
+            orientation(&with_orientation(&sample(), 3).unwrap()),
+            Some(3)
+        );
+        assert_eq!(
+            with_orientation(&sample(), 3).unwrap().len(),
+            sample().len()
+        );
+        assert_eq!(orientation(&orientation_only(6)), Some(6));
+        assert_eq!(with_orientation(b"nope", 6), None);
     }
 
     #[test]

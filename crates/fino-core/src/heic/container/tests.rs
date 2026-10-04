@@ -112,3 +112,20 @@ fn damaged_files_are_errors_not_panics() {
     let _ = inspect(&data);
     assert!(inspect(b"definitely not a heif").is_err());
 }
+
+#[test]
+fn hostile_sizes_and_repeated_extents_are_rejected() {
+    // A 64-bit box size near u64::MAX must not overflow.
+    let mut huge = bx(b"ftyp", b"heic\0\0\0\0mif1heic");
+    huge.extend_from_slice(&1u32.to_be_bytes());
+    huge.extend_from_slice(b"meta");
+    huge.extend_from_slice(&u64::MAX.to_be_bytes());
+    assert!(inspect(&huge).is_err());
+
+    // An Exif item made of the same whole-idat extent many times over.
+    let mut file = synthetic();
+    let iloc = file.windows(4).position(|w| w == b"iloc").unwrap();
+    let extents_at = iloc + 4 + 4 + 2 + 2 + 2 + 2 + 2; // header, sizes, count, id, method, ref
+    file[extents_at..extents_at + 2].copy_from_slice(&1u16.to_be_bytes());
+    let _ = inspect(&file); // must not panic or balloon
+}

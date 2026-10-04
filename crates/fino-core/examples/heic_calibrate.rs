@@ -13,8 +13,9 @@ fn main() {
     };
     for path in std::env::args().skip(1) {
         let data = std::fs::read(&path).unwrap();
-        let reference = fino_core::heic::decode::decode(&data, false)
+        let reference = fino_core::heic::decode::decode(&data, false, u64::MAX)
             .unwrap()
+            .expect("within the pixel budget")
             .pixels;
         print!(
             "{:<28} {:>6} KB",

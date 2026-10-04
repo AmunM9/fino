@@ -149,13 +149,14 @@ fn boxes(data: &[u8], base: usize) -> Result<Vec<BoxRef<'_>>> {
         let size32 = r.u32()?;
         let kind: [u8; 4] = r.bytes(4)?.try_into().map_err(|_| truncated())?;
         let (header, size) = match size32 {
-            1 => (16, r.uint(8)? as usize),
+            1 => (16, usize::try_from(r.uint(8)?).unwrap_or(usize::MAX)),
             0 => (8, data.len() - at),
             n => (8, n as usize),
         };
-        if size < header || at + size > data.len() {
+        let end = at.checked_add(size).filter(|&end| end <= data.len());
+        let Some(_) = end.filter(|_| size >= header) else {
             return Err(FinoError::Malformed("HEIF box overruns its parent"));
-        }
+        };
         out.push(BoxRef {
             kind,
             body: &data[at + header..at + size],
@@ -367,18 +368,30 @@ impl Meta<'_> {
             }
             _ => return Err(FinoError::Malformed("HEIF item stored by reference")),
         };
+        // A hostile index can repeat or overlap extents; no item may be larger than the
+        // data it lives in, which bounds the allocation.
+        let outside = || FinoError::Malformed("HEIF item outside the file");
+        let limit = source.0.len();
         let mut out = Vec::new();
         for e in &loc.extents {
-            let start = loc.base + e.offset + source.1;
+            let start = loc
+                .base
+                .checked_add(e.offset)
+                .and_then(|v| v.checked_add(source.1))
+                .and_then(|v| usize::try_from(v).ok())
+                .ok_or_else(outside)?;
             let end = if e.length == 0 {
-                source.0.len() as u64
+                limit
             } else {
-                start + e.length
+                usize::try_from(e.length)
+                    .ok()
+                    .and_then(|len| start.checked_add(len))
+                    .ok_or_else(outside)?
             };
-            let slice = source
-                .0
-                .get(start as usize..end as usize)
-                .ok_or(FinoError::Malformed("HEIF item outside the file"))?;
+            let slice = source.0.get(start..end).ok_or_else(outside)?;
+            if out.len() + slice.len() > limit {
+                return Err(outside());
+            }
             out.extend_from_slice(slice);
         }
         Ok(out)

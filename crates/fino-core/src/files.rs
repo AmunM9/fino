@@ -233,12 +233,6 @@ pub fn replace(path: &Path, bytes: &[u8], backup_to: Option<&Path>) -> std::io::
     Ok(())
 }
 
-/// Where a converted photo goes next to its source: same name, `.jpg` (`.JPG` when the
-/// source's extension is upper case, as iPhones write), never over an existing file.
-pub fn converted_path(source: &Path) -> PathBuf {
-    unique_path(&converted_name(source))
-}
-
 /// `IMG_0001.HEIC` → `IMG_0001.JPG`, `photo.heic` → `photo.jpg`.
 pub fn converted_name(source: &Path) -> PathBuf {
     let upper = source
@@ -248,7 +242,51 @@ pub fn converted_name(source: &Path) -> PathBuf {
     source.with_extension(if upper { "JPG" } else { "jpg" })
 }
 
-/// Moves a file, across volumes if needed (copy, then delete the source).
+/// Claims `path` — or `path 2`, `path 3`… — by creating an empty placeholder with
+/// `create_new`, so two workers can never pick the same name. The caller writes over it.
+pub fn reserve_unique(path: &Path) -> std::io::Result<PathBuf> {
+    let stem = path
+        .file_stem()
+        .map(|s| s.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    let ext = path
+        .extension()
+        .map(|e| format!(".{}", e.to_string_lossy()))
+        .unwrap_or_default();
+    let candidates = std::iter::once(path.to_path_buf())
+        .chain((2..).map(|n| path.with_file_name(format!("{stem} {n}{ext}"))));
+    for candidate in candidates {
+        match fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&candidate)
+        {
+            Ok(_) => return Ok(candidate),
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(e) => return Err(e),
+        }
+    }
+    unreachable!("an unused name always exists")
+}
+
+/// Copies `from` to `to` through a temp file + rename, carrying dates and tags: a crash or
+/// a full disk never leaves a truncated file under the final name.
+pub fn copy_file(from: &Path, to: &Path) -> std::io::Result<()> {
+    if let Some(parent) = to.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    let attrs = Attributes::read(from)?;
+    let tmp = temp_path(to);
+    let copied = fs::copy(from, &tmp).and_then(|_| fs::rename(&tmp, to));
+    if copied.is_err() {
+        let _ = fs::remove_file(&tmp);
+    }
+    copied?;
+    let _ = attrs.apply(to);
+    Ok(())
+}
+
+/// Moves a file, across volumes if needed (atomic copy, then delete the source).
 fn move_file(from: &Path, to: &Path) -> std::io::Result<()> {
     if let Some(parent) = to.parent() {
         fs::create_dir_all(parent)?;
@@ -256,9 +294,7 @@ fn move_file(from: &Path, to: &Path) -> std::io::Result<()> {
     if fs::rename(from, to).is_ok() {
         return Ok(());
     }
-    let attrs = Attributes::read(from)?;
-    fs::copy(from, to)?;
-    let _ = attrs.apply(to);
+    copy_file(from, to)?;
     fs::remove_file(from)
 }
 
@@ -272,8 +308,11 @@ pub fn convert_in_place(
     backup_to: Option<&Path>,
 ) -> std::io::Result<PathBuf> {
     let attrs = Attributes::read(source)?;
-    let out = converted_path(source);
-    write_atomic(&out, bytes)?;
+    let out = reserve_unique(&converted_name(source))?;
+    if let Err(e) = write_atomic(&out, bytes) {
+        let _ = fs::remove_file(&out);
+        return Err(e);
+    }
     let _ = attrs.apply(&out);
     let retired = match backup_to {
         Some(dest) => move_file(source, dest),
@@ -287,14 +326,16 @@ pub fn convert_in_place(
 }
 
 /// Undo of `convert_in_place`: puts the original back and removes the JPEG — unless the
-/// JPEG changed since Fino wrote it, or something new took the original's name.
+/// JPEG changed since Fino wrote it, or something new took the original's name. A JPEG the
+/// user already deleted is fine: there is nothing left to protect.
 pub fn restore_converted(
     backup: &Path,
     original: &Path,
     output: &Path,
     expected: Option<Fingerprint>,
 ) -> std::io::Result<()> {
-    if let Some(expected) = expected {
+    let output_present = output.exists();
+    if let (Some(expected), true) = (expected, output_present) {
         if fingerprint(output).ok() != Some(expected) {
             return Err(std::io::Error::other(
                 "the converted photo changed after it was written; left as is",
@@ -307,10 +348,12 @@ pub fn restore_converted(
         ));
     }
     move_file(backup, original)?;
-    match fs::remove_file(output) {
-        Err(e) if e.kind() != std::io::ErrorKind::NotFound => Err(e),
-        _ => Ok(()),
+    if output_present {
+        // The original is back, which is what undo promises; a JPEG that cannot be removed
+        // is left beside it rather than turning a successful undo into a failure.
+        let _ = fs::remove_file(output);
     }
+    Ok(())
 }
 
 /// The video half of a Live Photo: a `.mov` with the same name next to the photo.
@@ -350,10 +393,14 @@ pub fn export(source: &Path, dest: &Path, bytes: &[u8]) -> std::io::Result<PathB
     if let Some(parent) = dest.parent() {
         fs::create_dir_all(parent)?;
     }
-    let dest = unique_path(dest);
-    write_atomic(&dest, bytes)?;
-    let attrs = Attributes::read(source)?;
-    attrs.apply(&dest)?;
+    let dest = reserve_unique(dest)?;
+    let written = write_atomic(&dest, bytes)
+        .and_then(|_| Attributes::read(source))
+        .and_then(|attrs| attrs.apply(&dest));
+    if let Err(e) = written {
+        let _ = fs::remove_file(&dest);
+        return Err(e);
+    }
     Ok(dest)
 }
 
@@ -539,5 +586,32 @@ mod tests {
             live_photo_video(&photo),
             Some(dir.path().join("IMG_0002.MOV"))
         );
+    }
+
+    #[test]
+    fn undo_still_works_after_the_user_deleted_the_converted_jpeg() {
+        let dir = tempfile::tempdir().unwrap();
+        let heic = dir.path().join("a.heic");
+        fs::write(&heic, b"heic").unwrap();
+        let backup = dir.path().join("b/a.heic");
+        let out = convert_in_place(&heic, b"jpeg", Some(&backup)).unwrap();
+        let written = fingerprint(&out).ok();
+        fs::remove_file(&out).unwrap();
+        restore_converted(&backup, &heic, &out, written).unwrap();
+        assert_eq!(fs::read(&heic).unwrap(), b"heic");
+    }
+
+    #[test]
+    fn concurrent_writers_never_share_a_name() {
+        let dir = tempfile::tempdir().unwrap();
+        let target = dir.path().join("IMG.JPG");
+        let names: Vec<PathBuf> = std::thread::scope(|scope| {
+            let handles: Vec<_> = (0..8)
+                .map(|_| scope.spawn(|| reserve_unique(&target).unwrap()))
+                .collect();
+            handles.into_iter().map(|h| h.join().unwrap()).collect()
+        });
+        let unique: HashSet<_> = names.iter().collect();
+        assert_eq!(unique.len(), 8);
     }
 }

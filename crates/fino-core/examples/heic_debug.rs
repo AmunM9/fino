@@ -15,7 +15,9 @@ fn main() {
             "imageio aux in source: {:?}",
             fino_core::heic::decode::aux_present(&data)
         );
-        let d = fino_core::heic::decode::decode(&data, true).unwrap();
+        let d = fino_core::heic::decode::decode(&data, true, u64::MAX)
+            .unwrap()
+            .unwrap();
         println!(
             "orientation {} native {} carrier {:?} bytes",
             d.orientation,

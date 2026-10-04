@@ -50,36 +50,30 @@ pub fn prepare<'a>(
     if let Some(reason) = precheck(&info, options) {
         return Ok(Err(reason));
     }
-    let decoded = decode::decode(data, true)?;
+    // The pixel budget is checked from the header, before anything is allocated.
+    let Some(decoded) = decode::decode(data, true, options.max_pixels)? else {
+        return Ok(Err(SkipReason::TooLarge));
+    };
     if info.iso_gain_map && decoded.unreadable_iso_gain_map {
         return Ok(Err(SkipReason::HdrGainMap)); // this macOS cannot copy an ISO gain map
     }
-    let (w, h) = (decoded.pixels.width as u64, decoded.pixels.height as u64);
-    if w * h > options.max_pixels {
-        return Ok(Err(SkipReason::TooLarge));
-    }
 
-    let mut pixels = decoded.pixels;
-    let mut orientation = decoded.orientation;
-    let mut tiff = info.exif_tiff;
-    let tag_written = tiff
-        .as_mut()
-        .is_some_and(|t| exif::set_orientation(t, orientation));
-    if !tag_written && orientation != 1 {
-        // No tag to carry the rotation: bake it into the pixels instead.
-        pixels = crate::resize::orient(&pixels, orientation);
-        orientation = 1;
-    }
+    // The rotation always travels as an EXIF tag (pixels stay as stored), so auxiliary
+    // images such as the gain map stay aligned with the primary.
+    let orientation = decoded.orientation;
+    let tiff = match info.exif_tiff {
+        Some(tiff) => exif::with_orientation(&tiff, orientation)
+            .ok_or(crate::FinoError::Malformed("unreadable EXIF in HEIC"))?,
+        None => exif::orientation_only(orientation),
+    };
+    let pixels = decoded.pixels;
 
-    let mut segments = Vec::new();
-    if let Some(tiff) = tiff {
-        let mut body = metadata::EXIF_HEADER.to_vec();
-        body.extend_from_slice(&tiff);
-        segments.push(metadata::Segment {
-            marker: metadata::APP1,
-            body,
-        });
-    }
+    let mut exif_body = metadata::EXIF_HEADER.to_vec();
+    exif_body.extend_from_slice(&tiff);
+    let mut segments = vec![metadata::Segment {
+        marker: metadata::APP1,
+        body: exif_body,
+    }];
     if let Some(xmp) = info.xmp {
         let mut body = metadata::XMP_HEADER.to_vec();
         body.extend_from_slice(&xmp_orientation(&xmp, orientation));

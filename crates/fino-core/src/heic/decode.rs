@@ -17,7 +17,8 @@ use objc2_core_graphics::{
 use objc2_image_io::{
     kCGImageAuxiliaryDataTypeDepth, kCGImageAuxiliaryDataTypeDisparity,
     kCGImageAuxiliaryDataTypeHDRGainMap, kCGImageAuxiliaryDataTypePortraitEffectsMatte,
-    kCGImagePropertyOrientation, CGImageDestination, CGImageSource,
+    kCGImagePropertyOrientation, kCGImagePropertyPixelHeight, kCGImagePropertyPixelWidth,
+    CGImageDestination, CGImageSource,
 };
 use std::ffi::CStr;
 use std::sync::{Condvar, Mutex};
@@ -111,7 +112,16 @@ fn aux_kinds() -> Vec<&'static CFString> {
             kCGImageAuxiliaryDataTypePortraitEffectsMatte,
         ]
     };
-    kinds.extend(runtime_key(c"kCGImageAuxiliaryDataTypeISOGainMap"));
+    // Portrait editing mattes (iPhone portraits); looked up at run time to be safe.
+    let optional = [
+        c"kCGImageAuxiliaryDataTypeISOGainMap",
+        c"kCGImageAuxiliaryDataTypeSemanticSegmentationSkinMatte",
+        c"kCGImageAuxiliaryDataTypeSemanticSegmentationHairMatte",
+        c"kCGImageAuxiliaryDataTypeSemanticSegmentationTeethMatte",
+        c"kCGImageAuxiliaryDataTypeSemanticSegmentationGlassesMatte",
+        c"kCGImageAuxiliaryDataTypeSemanticSegmentationSkyMatte",
+    ];
+    kinds.extend(optional.into_iter().filter_map(runtime_key));
     kinds
 }
 
@@ -200,7 +210,8 @@ fn carrier(aux: &[(&CFString, CFRetained<CFDictionary>)]) -> Option<Vec<u8>> {
 }
 
 /// Decodes the primary image of a HEIC file. `want_aux` asks for the carrier JPEG.
-pub fn decode(bytes: &[u8], want_aux: bool) -> Result<Decoded> {
+/// `Ok(None)`: the image is larger than `max_pixels` (nothing big was allocated).
+pub fn decode(bytes: &[u8], want_aux: bool, max_pixels: u64) -> Result<Option<Decoded>> {
     let _permit = Permit::acquire();
     let data = CFData::from_bytes(bytes);
     // SAFETY: plain ImageIO calls on objects created and dropped within this function.
@@ -212,6 +223,12 @@ pub fn decode(bytes: &[u8], want_aux: bool) -> Result<Decoded> {
     let orientation = number(&properties, unsafe { kCGImagePropertyOrientation })
         .filter(|o| (1..=8).contains(o))
         .unwrap_or(1) as u16;
+    let width = number(&properties, unsafe { kCGImagePropertyPixelWidth }).unwrap_or(0);
+    let height = number(&properties, unsafe { kCGImagePropertyPixelHeight }).unwrap_or(0);
+    let area = (width.max(0) as u64).saturating_mul(height.max(0) as u64);
+    if area == 0 || area > max_pixels {
+        return Ok(None);
+    }
 
     let aux: Vec<(&CFString, CFRetained<CFDictionary>)> = if want_aux {
         aux_kinds()
@@ -231,15 +248,19 @@ pub fn decode(bytes: &[u8], want_aux: bool) -> Result<Decoded> {
     };
     let image = unsafe { source.image_at_index(index, None) }
         .ok_or_else(|| decode_error("decoding failed"))?;
+    let (w, h) = (CGImage::width(Some(&image)), CGImage::height(Some(&image)));
+    if (w as u64).saturating_mul(h as u64) > max_pixels {
+        return Ok(None); // header lied about the size
+    }
     let (pixels, icc, native_space) = draw_rgb(&image)?;
-    Ok(Decoded {
+    Ok(Some(Decoded {
         pixels,
         orientation,
         icc,
         native_space,
         carrier,
         unreadable_iso_gain_map: runtime_key(c"kCGImageAuxiliaryDataTypeISOGainMap").is_none(),
-    })
+    }))
 }
 
 /// Auxiliary image kinds ImageIO finds in any image file (used to verify outputs).
