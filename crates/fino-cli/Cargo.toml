@@ -1,0 +1,13 @@
+[package]
+name = "fino-cli"
+description = "Perceptually lossless JPEG recompression from the command line"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+fino-core = { version = "0.1.0", path = "../fino-core" }
+
+[[bin]]
+name = "fino"
+path = "src/main.rs"
