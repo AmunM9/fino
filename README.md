@@ -34,17 +34,20 @@ misma resolución · mismos metadatos · SSIMULACRA 2 ≈ 85
 |---|---|
 | **Optimizar originales** | Reemplaza cada foto. Antes guarda un respaldo para que puedas **deshacer la sesión** (retención de 1, 7 o 30 días). |
 | **Respaldos** | Viven en `~/Library/Application Support/app.fino.desktop/backups/`. Se borran solos al vencer (Fino lo revisa al abrirse y al volver a la ventana). En Ajustes ves cuánto ocupan y puedes **liberarlos**; en Historial, descartar el de una sesión. Si los borras a mano, Fino lo detecta. |
+| **HEIC → JPEG** | Las fotos HEIC (iPhone) se convierten en JPEG optimizados con EXIF, XMP, perfil de color y la nota de Apple intactos, **y conservan el HDR** (gain map), la profundidad y las máscaras de retrato. Las Live Photos siguen emparejadas con su video. Al optimizar originales, el HEIC queda en el respaldo; se puede desactivar en Ajustes. |
+| **Ventana mini** | Un dial pequeño que flota sobre las demás apps: arrastras fotos o carpetas y ves pasar cada foto mientras se optimiza. |
 | **Exportar copia** | Deja los originales intactos. Guarda las copias en una carpeta `Fino` junto a cada foto o en un destino fijo, y respeta la estructura de carpetas. |
 | **Varios tamaños** | Hasta 4 tamaños por exportación (lado largo, ancho máx. o alto máx.). Respeta la orientación EXIF y nunca amplía. |
 | **Intensidad** | *Impecable* (ni con lupa notarás la diferencia), *Idéntica* (recomendada: se ve igual que el original) y *Compacta* (un poco más liviana, para web y redes). |
 | **Comparar** | Vista antes/después con divisor deslizable y **lupa al 100 %** que sigue al cursor. Solo se ofrece si el original y la versión optimizada siguen donde estaban. |
-| **Historial** | Ahorro total, sesiones, deshacer y exportación del log a CSV con el motivo de cada archivo omitido. |
+| **Historial** | Ahorro total, sesiones sin límite (base de datos SQLite local), deshacer y exportación del log a CSV con el motivo de cada archivo omitido. |
 | **Tema claro y oscuro** | Sigue a macOS o se fija desde Ajustes; también la barra de título y los diálogos. |
 | **Privacidad** | Opción para quitar la ubicación GPS de EXIF y XMP; el resto de metadatos no se toca. |
 | **Respeta tu archivo** | Conserva byte a byte EXIF, XMP, IPTC y perfiles ICC, además de fechas de creación y modificación, etiquetas de Finder y permisos. Escribe de forma atómica. |
 | **Sin pérdida cuando conviene** | Si recomprimir no compensa (fotos ya comprimidas), reescribe solo la codificación: −3 a −7 % con píxeles **idénticos**. |
 | **Nunca empeora** | Si no ahorra al menos un 3 %, deja el archivo como estaba. También salta las fotos que ya pasaron por Fino y los HDR con *gain map*. |
-| **Finder** | Puedes arrastrar fotos al icono del Dock o usar «Abrir con → Fino». |
+| **Finder** | Arrastra fotos o carpetas al icono del Dock, o usa «Abrir con → Fino». |
+| **Apple Silicon e Intel** | Binario universal. |
 | **CLI** | `fino` usa el mismo motor desde la terminal. |
 
 ## Cómo funciona el motor
@@ -100,6 +103,12 @@ cargo test --workspace
 
 ```bash
 npm run tauri build
+```
+
+Binario universal (Apple Silicon + Intel; requiere `nasm` para el SIMD de Intel y el target `x86_64-apple-darwin`):
+
+```bash
+npm run build:universal
 ```
 
 Para ver la interfaz en el navegador con datos de ejemplo, ejecuta `npm run dev` y abre `http://localhost:1420/?state=done` (parámetros: `state=idle|running|done`, `view=history|settings|compare`, `theme=light|dark`).

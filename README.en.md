@@ -36,17 +36,20 @@ same resolution · same metadata · SSIMULACRA 2 ≈ 85
 |---|---|
 | **Optimize originals** | Replaces each photo, keeping a backup first so you can **undo the whole session** (kept 1, 7 or 30 days). |
 | **Backups** | Stored in `~/Library/Application Support/app.fino.desktop/backups/`. They expire on their own (checked when Fino opens and whenever you return to it). Settings shows how much space they take and **frees** them; History discards a single session's backup. Backups deleted by hand are detected. |
+| **HEIC → JPEG** | HEIC photos (iPhone) become optimized JPEGs with EXIF, XMP, colour profile and Apple's MakerNote intact — **HDR (gain map), depth and portrait mattes included**. Live Photos stay paired with their video. When optimizing originals the HEIC is kept in the backup; can be turned off in Settings. |
+| **Mini window** | A small dial that floats over other apps: drop photos or folders on it and watch each photo go by as it is optimized. |
 | **Export a copy** | Leaves originals untouched. Copies go to a `Fino` folder next to each photo or to a fixed destination, mirroring the folder structure. |
 | **Several sizes** | Up to 4 sizes per export (long edge, max width or max height). Honors EXIF orientation and never upscales. |
 | **Strength** | *Flawless* (no difference even under a loupe), *Identical* (recommended: looks the same as the original) and *Compact* (a little lighter, for the web and social media). |
 | **Compare** | Before/after view with a draggable divider and a **100% loupe** that follows the cursor. Only offered while both the original and the optimized file are still in place. |
-| **History** | Total savings, sessions, undo, and a CSV log with the reason each file was skipped. |
+| **History** | Total savings, unlimited sessions (local SQLite database), undo, and a CSV log with the reason each file was skipped. |
 | **Light and dark** | Follows macOS or is fixed from Settings — title bar and dialogs included. |
 | **Privacy** | Optionally strips GPS location from EXIF and XMP; all other metadata stays. |
 | **Respects your files** | Keeps EXIF, XMP, IPTC and ICC profiles byte for byte, plus creation/modification dates, Finder tags and permissions. Writes atomically. |
 | **Lossless when it pays** | When recompressing isn't worth it (already-compressed photos), it rewrites only the entropy coding: −3 to −7% with **identical** pixels. |
 | **Never worse** | If it can't save at least 3%, the file is left as is. Photos Fino already processed and HDR photos with a gain map are skipped. |
-| **Finder** | Drop photos on the Dock icon or use "Open With → Fino". |
+| **Finder** | Drop photos or folders on the Dock icon, or use "Open With → Fino". |
+| **Apple Silicon and Intel** | Universal binary. |
 | **CLI** | `fino` runs the same engine from the terminal. |
 
 ## How the engine works
@@ -102,6 +105,12 @@ cargo test --workspace
 
 ```bash
 npm run tauri build
+```
+
+Universal binary (Apple Silicon + Intel; needs `nasm` for Intel SIMD and the `x86_64-apple-darwin` target):
+
+```bash
+npm run build:universal
 ```
 
 To browse the UI with sample data, run `npm run dev` and open `http://localhost:1420/?state=done` (params: `state=idle|running|done`, `view=history|settings|compare`, `theme=light|dark`).
