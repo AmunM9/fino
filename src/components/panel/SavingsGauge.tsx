@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { useCountUp } from "../../hooks/useCountUp";
 import { sizeParts } from "../../lib/format";
 import { t } from "../../lib/strings";
@@ -25,10 +26,12 @@ interface Props {
   /** 0–1 share of bytes removed; drives the arc. */
   fraction: number;
   active: boolean;
+  /** Shown above the figure, e.g. a check once a batch is done. */
+  badge?: ReactNode;
 }
 
 /** Instrument-style dial: the arc fills with the share of bytes removed. */
-export function SavingsGauge({ savedBytes, fraction, active }: Props) {
+export function SavingsGauge({ savedBytes, fraction, active, badge }: Props) {
   const animated = useCountUp(savedBytes);
   const shown = useCountUp(fraction);
   const { value, unit } = sizeParts(animated);
@@ -46,6 +49,7 @@ export function SavingsGauge({ savedBytes, fraction, active }: Props) {
         <path d={arcPath()} className="gauge__fill" strokeDasharray={ARC_LENGTH} strokeDashoffset={offset} />
       </svg>
       <figcaption className="gauge__readout">
+        {badge && <span className="gauge__badge">{badge}</span>}
         <span className="gauge__value num">{savedBytes > 0 ? value : "0"}</span>
         <span className="gauge__unit">
           {savedBytes > 0 ? unit : "MB"} {t.panel.saved}

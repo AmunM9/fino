@@ -61,6 +61,24 @@
 .gauge[data-active="true"] .gauge__value {
   color: var(--color-text);
 }
+.gauge__badge {
+  display: grid;
+  place-items: center;
+  margin-bottom: 4px;
+  color: var(--color-signal);
+  animation: badge-in var(--duration-slow) var(--ease-spring) both;
+}
+.gauge__badge svg {
+  width: 22px;
+  height: 22px;
+  stroke-width: 2;
+}
+@keyframes badge-in {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+}
 .gauge__unit {
   font-size: var(--text-xs);
   font-weight: 650;

@@ -28,6 +28,8 @@ interface AppContextValue {
   cancel: () => void;
   undo: (sessionId: string) => Promise<void>;
   undoing: boolean;
+  /** Pending "files will be replaced" question shown inside the mini window. */
+  replacePrompt: ReplacePrompt | null;
   /** Re-reads History and the disk (expired or hand-deleted backups, moved files). */
   refreshHistory: () => void;
   /** Shows the next page of older sessions. */
@@ -52,10 +54,18 @@ export function useApp(): AppContextValue {
   return ctx;
 }
 
-/** Replacing originals asks first — for every batch, including ones queued mid-session. */
-async function confirmReplace(settings: Settings | null, count: number): Promise<boolean> {
-  const mustAsk = settings === null || (settings.outputMode === "replace" && settings.warnBeforeReplace);
-  if (!mustAsk) return true;
+/** The mini window asks inside itself: a native alert would dwarf it. */
+export interface ReplacePrompt {
+  count: number;
+  keepBackups: boolean;
+  answer: (proceed: boolean, dontAskAgain: boolean) => void;
+}
+
+function mustConfirmReplace(settings: Settings | null): boolean {
+  return settings === null || (settings.outputMode === "replace" && settings.warnBeforeReplace);
+}
+
+function askNatively(settings: Settings | null, count: number): Promise<boolean> {
   return ask(t.session.confirmReplace(count, settings?.keepBackups ?? true), {
     title: t.session.confirmReplaceTitle,
     kind: "warning",
@@ -74,6 +84,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [queued, setQueued] = useState(0);
   const [undoing, setUndoing] = useState(false);
   const [clearing, setClearing] = useState(false);
+  const [replacePrompt, setReplacePrompt] = useState<ReplacePrompt | null>(null);
 
   useAppearance(settings?.appearance);
 
@@ -163,10 +174,32 @@ export function AppProvider({ children }: { children: ReactNode }) {
       });
   }, []);
 
+  /** Replacing originals asks first — for every batch, including ones queued mid-session. */
+  const confirmReplace = useCallback(
+    async (count: number): Promise<boolean> => {
+      // A cold "Open With" launch can deliver photos before settings have loaded.
+      const current = settingsRef.current ?? (await ipc.getSettings().catch(() => null));
+      if (!mustConfirmReplace(current)) return true;
+      if (!current?.compactWindow) return askNatively(current, count);
+      return new Promise<boolean>((resolve) => {
+        setReplacePrompt({
+          count,
+          keepBackups: current.keepBackups,
+          answer: (proceed, dontAskAgain) => {
+            setReplacePrompt(null);
+            if (proceed && dontAskAgain) updateSettings({ warnBeforeReplace: false });
+            resolve(proceed);
+          },
+        });
+      });
+    },
+    [updateSettings],
+  );
+
   const launch = useCallback(async (paths: string[]): Promise<void> => {
     busy.current = true;
     try {
-      if (!(await confirmReplace(settingsRef.current, paths.length))) return;
+      if (!(await confirmReplace(paths.length))) return;
       dispatch({ type: "begin" });
       await ipc.optimize(paths, (event) => dispatch({ type: "event", event }));
       await loadHistory(() => ipc.getHistory(historyLimit.current));
@@ -179,7 +212,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setQueued(0);
       if (next.length > 0) void launch(next);
     }
-  }, [loadHistory]);
+  }, [loadHistory, confirmReplace]);
 
   const start = useCallback(
     (paths: string[]) => {
@@ -252,6 +285,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       cancel,
       undo,
       undoing,
+      replacePrompt,
       refreshHistory,
       loadMoreHistory,
       discardBackup,
@@ -275,6 +309,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       cancel,
       undo,
       undoing,
+      replacePrompt,
       refreshHistory,
       loadMoreHistory,
       discardBackup,

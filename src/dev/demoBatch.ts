@@ -48,5 +48,6 @@ export function demoResult(i: number): FileResult {
     millis: 560 + Math.round(noise(i + 11) * 300),
     previewPath: skipped ? null : preview,
     lossless: false,
+    converted: false,
   };
 }

@@ -19,6 +19,7 @@ pub struct AppState {
     /// Held by anything that deletes or restores backups (undo, discard, maintenance) so
     /// they never interleave.
     pub backups: Mutex<()>,
+    pub window_size: crate::window_mode::Remembered,
 }
 
 impl AppState {
@@ -102,9 +103,13 @@ pub fn save_settings(
         return Err("export folder must be an absolute path".into());
     }
     let settings = settings.sanitized();
+    let previous = state.store.settings();
     state.store.save_settings(&settings)?;
     if let Some(window) = app.get_webview_window("main") {
         crate::appearance::apply(&window, settings.appearance);
+        if previous.compact_window != settings.compact_window {
+            crate::window_mode::apply(&window, settings.compact_window, &state.window_size);
+        }
     }
     Ok(settings)
 }

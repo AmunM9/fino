@@ -1,17 +1,9 @@
-import { open } from "@tauri-apps/plugin-dialog";
 import { FolderOpen, FolderOutput, Images, ShieldCheck, ShieldOff } from "lucide-react";
 import { prettyPath } from "../../lib/format";
-import { errorMessage } from "../../lib/ipc";
 import { t } from "../../lib/strings";
 import type { Settings } from "../../lib/types";
+import { usePhotoPicker } from "../../hooks/usePhotoPicker";
 import { useApp } from "../../state/AppProvider";
-
-const JPEG_FILTER = [{ name: "JPEG", extensions: ["jpg", "jpeg", "jpe", "jfif"] }];
-
-function asList(selection: string | string[] | null): string[] {
-  if (!selection) return [];
-  return Array.isArray(selection) ? selection : [selection];
-}
 
 function ModeHint({ settings }: { settings: Settings }) {
   if (settings.outputMode === "export") {
@@ -31,16 +23,8 @@ function ModeHint({ settings }: { settings: Settings }) {
 }
 
 export function DropStage() {
-  const { settings, start, setView, notify } = useApp();
-
-  const pick = async (directory: boolean) => {
-    try {
-      const selection = await open({ multiple: true, directory, filters: directory ? undefined : JPEG_FILTER });
-      start(asList(selection));
-    } catch (e) {
-      notify(errorMessage(e));
-    }
-  };
+  const { settings, setView } = useApp();
+  const pick = usePhotoPicker();
 
   return (
     <section className="drop" aria-labelledby="drop-heading">

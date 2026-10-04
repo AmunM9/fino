@@ -1,4 +1,5 @@
 import { CompareView } from "./components/compare/CompareView";
+import { MiniView } from "./components/mini/MiniView";
 import { HistoryView } from "./components/history/HistoryView";
 import { OptimizeView } from "./components/optimize/OptimizeView";
 import { SessionPanel } from "./components/panel/SessionPanel";
@@ -11,8 +12,17 @@ import { AppProvider, useApp } from "./state/AppProvider";
 import "./components/shell/shell.css";
 
 function Shell() {
-  const { view, start, compare, notice, dismissNotice } = useApp();
+  const { view, start, compare, notice, dismissNotice, settings } = useApp();
   const isOver = useFileDrop(start);
+
+  if (settings?.compactWindow) {
+    return (
+      <>
+        <MiniView isOver={isOver} />
+        {notice && <Notice message={notice} onClose={dismissNotice} />}
+      </>
+    );
+  }
 
   return (
     <div className="shell">

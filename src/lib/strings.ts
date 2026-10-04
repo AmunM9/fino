@@ -49,6 +49,21 @@ export const t = {
     since: (when: string) => `desde ${when}`,
   },
 
+  mini: {
+    enter: "Ventana mini",
+    expand: "Ventana completa",
+    add: "Elegir fotos",
+    drop: "Suelta fotos o carpetas aquí",
+    progress: (done: string, total: string) => `${done} de ${total}`,
+    done: (photos: string, percent: string) => `${photos} fotos · ${percent} más livianas`,
+    replaceTitle: "Se reemplazarán los archivos",
+    replaceBody: (n: number, backups: boolean) =>
+      `Fino va a sobrescribir ${n === 1 ? "1 elemento" : `${n} elementos`} con su versión optimizada.` +
+      (backups ? " Guardará una copia para que puedas deshacerlo." : " No se guardará copia."),
+    continue: "Continuar",
+    dontAskAgain: "No volver a mostrar",
+  },
+
   lossless: "Sin pérdida",
   losslessHint: "Mismos píxeles exactos: solo se reordenó la codificación.",
 

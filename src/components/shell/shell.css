@@ -119,3 +119,11 @@
     transform: scale(0.7);
   }
 }
+
+/* Mini-window toggle sits at the foot of the rail, under the busy dot. */
+.rail__mini {
+  margin-top: auto;
+}
+.rail__busy + .rail__mini {
+  margin-top: var(--space-3);
+}

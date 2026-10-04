@@ -24,7 +24,8 @@
           "y": 24
         },
         "backgroundColor": "#111317",
-        "dragDropEnabled": true
+        "dragDropEnabled": true,
+        "visible": false
       }
     ],
     "security": {

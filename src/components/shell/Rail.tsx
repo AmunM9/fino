@@ -1,4 +1,4 @@
-import { ChartNoAxesColumn, Images, SlidersHorizontal, type LucideIcon } from "lucide-react";
+import { ChartNoAxesColumn, Images, PictureInPicture2, SlidersHorizontal, type LucideIcon } from "lucide-react";
 import { t } from "../../lib/strings";
 import { useApp, type View } from "../../state/AppProvider";
 import { LogoMark } from "./Logo";
@@ -10,7 +10,7 @@ const ITEMS: ReadonlyArray<{ view: View; icon: LucideIcon; label: string }> = [
 ];
 
 export function Rail() {
-  const { view, setView, session } = useApp();
+  const { view, setView, session, updateSettings } = useApp();
   return (
     <nav className="rail" aria-label="Navegación principal">
       <div className="rail__logo">
@@ -30,6 +30,15 @@ export function Rail() {
         </button>
       ))}
       {session.phase === "running" && <span className="rail__busy" aria-label={t.session.working} />}
+      <button
+        type="button"
+        className="rail__item rail__mini"
+        data-label={t.mini.enter}
+        aria-label={t.mini.enter}
+        onClick={() => updateSettings({ compactWindow: true })}
+      >
+        <PictureInPicture2 />
+      </button>
     </nav>
   );
 }

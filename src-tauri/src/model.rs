@@ -64,6 +64,8 @@ pub struct Settings {
     pub strip_location: bool,
     pub skip_optimized: bool,
     pub appearance: Appearance,
+    /// The compact "mini" window instead of the full one.
+    pub compact_window: bool,
 }
 
 impl Default for Settings {
@@ -79,6 +81,7 @@ impl Default for Settings {
             strip_location: false,
             skip_optimized: true,
             appearance: Appearance::System,
+            compact_window: false,
         }
     }
 }

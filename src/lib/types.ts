@@ -29,6 +29,10 @@ export interface Settings {
   stripLocation: boolean;
   skipOptimized: boolean;
   appearance: Appearance;
+  /** The compact "mini" window instead of the full one. */
+  compactWindow: boolean;
+  /** HEIC photos are converted to optimized JPEGs. */
+  convertHeic: boolean;
 }
 
 export type FileStatus = "done" | "skipped" | "failed";
@@ -73,6 +77,8 @@ export interface FileResult {
   previewPath: string | null;
   /** Output decodes to exactly the original pixels. */
   lossless: boolean;
+  /** Converted from another format (HEIC) into a new JPEG. */
+  converted: boolean;
 }
 
 export interface SessionSummary {

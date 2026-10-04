@@ -4,6 +4,7 @@
  *
  * URL params: ?state=idle|running|done  &view=optimize|history|settings|compare
  *             &theme=system|light|dark  &demo (a 1 248-photo camera batch, see demoBatch.ts)
+ *             &window=mini (compact window)  &ask=0 (no "replace originals?" question)
  * Used to capture docs/screenshots.
  */
 import { emit } from "@tauri-apps/api/event";
@@ -42,6 +43,7 @@ function result(i: number): FileResult {
     millis: 1400,
     previewPath: fixture("Fino", name),
     lossless: false,
+    converted: false,
   };
 }
 
@@ -99,6 +101,8 @@ let settings: Settings = {
   stripLocation: false,
   skipOptimized: true,
   appearance: "system",
+  compactWindow: false,
+  convertHeic: true,
 };
 
 /** Clicks a button by its accessible name once the UI has rendered it. */
@@ -134,6 +138,8 @@ export function installMocks(): void {
   const demo = params.has("demo");
   const results = demo ? Array.from({ length: DEMO_TOTAL }, (_, i) => demoResult(i)) : sampleResults;
   if (theme === "light" || theme === "dark") settings = { ...settings, appearance: theme };
+  if (params.get("window") === "mini") settings = { ...settings, compactWindow: true };
+  if (params.get("ask") === "0") settings = { ...settings, warnBeforeReplace: false };
   mockWindows("main");
   mockIPC((cmd, payload) => {
     switch (cmd) {

@@ -5,6 +5,7 @@ mod model;
 mod overview;
 mod session;
 mod store;
+mod window_mode;
 
 use commands::AppState;
 use std::sync::atomic::AtomicBool;
@@ -26,8 +27,14 @@ pub fn run() {
                 eprintln!("fino: could not recover interrupted sessions: {e}");
             }
             let settings = store.settings();
+            let window_size = window_mode::Remembered::default();
             if let Some(window) = app.get_webview_window("main") {
                 appearance::apply(&window, settings.appearance);
+                if settings.compact_window {
+                    window_mode::apply(&window, true, &window_size);
+                }
+                // Created hidden so it never flashes at the wrong size or theme.
+                let _ = window.show();
             }
             let retention = settings.backup_retention_days;
             if let Err(e) = store.maintain_backups(retention, model::now_millis()) {
@@ -39,6 +46,7 @@ pub fn run() {
                 cancel: AtomicBool::new(false),
                 opened: Default::default(),
                 backups: Default::default(),
+                window_size,
             });
             Ok(())
         })
