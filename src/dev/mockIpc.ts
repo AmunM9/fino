@@ -3,11 +3,13 @@
  * Never bundled into the app: main.tsx imports it only in dev builds outside Tauri.
  *
  * URL params: ?state=idle|running|done  &view=optimize|history|settings|compare
- *             &theme=system|light|dark   (used to capture docs/screenshots)
+ *             &theme=system|light|dark  &demo (a 1 248-photo camera batch, see demoBatch.ts)
+ * Used to capture docs/screenshots.
  */
 import { emit } from "@tauri-apps/api/event";
 import { mockIPC, mockWindows } from "@tauri-apps/api/mocks";
 import type { FileResult, History, SessionEntry, SessionSummary, Settings } from "../lib/types";
+import { DEMO_DONE_AT_START, DEMO_TOTAL, demoResult } from "./demoBatch";
 
 const ROOT = `${location.pathname.startsWith("/") ? "" : "/"}`;
 const FIXTURES = "/dev-fixtures";
@@ -43,7 +45,7 @@ function result(i: number): FileResult {
   };
 }
 
-const results: FileResult[] = [
+const sampleResults: FileResult[] = [
   ...FILES.map((_, i) => result(i)),
   { ...result(0), id: 3, name: "IMG_2041.jpg", status: "skipped", skipReason: "alreadyOptimized", outputBytes: 243_900, outputs: [] },
 ];
@@ -109,6 +111,9 @@ function clickLater(name: string, delay: number): void {
 
 type Emit = (event: unknown) => void;
 
+/** Pace of the demo batch: one photo lands on the pile per tick. */
+const DEMO_TICK_MS = 900;
+
 let pendingOpen: string[] = [];
 
 function channelEmitter(payload: Record<string, unknown> | undefined): Emit {
@@ -126,6 +131,8 @@ export function installMocks(): void {
   const view = params.get("view");
   const state = view === "compare" ? "done" : (params.get("state") ?? "idle");
   const theme = params.get("theme");
+  const demo = params.has("demo");
+  const results = demo ? Array.from({ length: DEMO_TOTAL }, (_, i) => demoResult(i)) : sampleResults;
   if (theme === "light" || theme === "dark") settings = { ...settings, appearance: theme };
   mockWindows("main");
   mockIPC((cmd, payload) => {
@@ -150,7 +157,13 @@ export function installMocks(): void {
         return results;
       case "optimize": {
         const emit = channelEmitter(payload as Record<string, unknown>);
-        emit({ kind: "started", sessionId: "s5", total: results.length });
+        emit({ kind: "started", sessionId: "s5", total: demo ? DEMO_TOTAL : results.length });
+        if (state === "running" && demo) {
+          results.slice(0, DEMO_DONE_AT_START).forEach((r) => emit({ kind: "file", result: r }));
+          let next = DEMO_DONE_AT_START;
+          setInterval(() => emit({ kind: "file", result: demoResult(next++) }), DEMO_TICK_MS);
+          return new Promise(() => undefined);
+        }
         const shown = state === "running" ? results.slice(0, 2) : results;
         shown.forEach((r) => emit({ kind: "file", result: r }));
         if (state === "running") return new Promise(() => undefined);

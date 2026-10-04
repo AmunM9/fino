@@ -13,18 +13,20 @@ Fino es una app para macOS que recomprime JPEG con un criterio *perceptual*. Pru
 misma resolución · mismos metadatos · SSIMULACRA 2 ≈ 85
 ```
 
-![Sesión terminada: ahorro por foto y total](docs/screenshots/optimize-dark.png)
+![Fino optimizando un lote de 1248 fotos de cámara](docs/screenshots/running-dark.png)
 
 <table>
   <tr>
     <td><img src="docs/screenshots/compare.jpg" alt="Comparador antes/después con divisor"></td>
-    <td><img src="docs/screenshots/drop-light.png" alt="Pantalla inicial en tema claro"></td>
+    <td><img src="docs/screenshots/done-light.png" alt="Sesión terminada: ahorro por foto"></td>
   </tr>
   <tr>
     <td><img src="docs/screenshots/history-light.png" alt="Historial de sesiones"></td>
     <td><img src="docs/screenshots/settings-light.png" alt="Ajustes"></td>
   </tr>
 </table>
+
+<sub>Capturas con datos de ejemplo: fotos reales de cámara y cifras simuladas con el ahorro medido (~67 %).</sub>
 
 ## Qué hace
 
@@ -34,7 +36,7 @@ misma resolución · mismos metadatos · SSIMULACRA 2 ≈ 85
 | **Respaldos** | Viven en `~/Library/Application Support/app.fino.desktop/backups/`. Se borran solos al vencer (Fino lo revisa al abrirse y al volver a la ventana). En Ajustes ves cuánto ocupan y puedes **liberarlos**; en Historial, descartar el de una sesión. Si los borras a mano, Fino lo detecta. |
 | **Exportar copia** | Deja los originales intactos. Guarda las copias en una carpeta `Fino` junto a cada foto o en un destino fijo, y respeta la estructura de carpetas. |
 | **Varios tamaños** | Hasta 4 tamaños por exportación (lado largo, ancho máx. o alto máx.). Respeta la orientación EXIF y nunca amplía. |
-| **Intensidad** | *Prístina* (indistinguible incluso alternando con el original), *Idéntica* (por defecto) y *Compacta*. |
+| **Intensidad** | *Impecable* (ni con lupa notarás la diferencia), *Idéntica* (recomendada: se ve igual que el original) y *Compacta* (un poco más liviana, para web y redes). |
 | **Comparar** | Vista antes/después con divisor deslizable y **lupa al 100 %** que sigue al cursor. Solo se ofrece si el original y la versión optimizada siguen donde estaban. |
 | **Historial** | Ahorro total, sesiones, deshacer y exportación del log a CSV con el motivo de cada archivo omitido. |
 | **Tema claro y oscuro** | Sigue a macOS o se fija desde Ajustes; también la barra de título y los diálogos. |
@@ -66,7 +68,7 @@ JPEG ─► inspección ─► decodificación ─► [resize Lanczos3]
 
 | Intensidad | Global (½ res) | Peor tile | SSIMULACRA 2 real |
 |---|---|---|---|
-| Prístina | ≥ 94,0 | ≥ 91,0 | ≈ 89 |
+| Impecable | ≥ 94,0 | ≥ 91,0 | ≈ 89 |
 | Idéntica | ≥ 91,5 | ≥ 86,5 | ≈ 85,5 |
 | Compacta | ≥ 89,0 | ≥ 82,5 | ≈ 82 |
 
@@ -120,4 +122,4 @@ cargo run --release -p fino-core --example calibrate -- carpeta/con/jpegs
 
 ## Licencias de terceros
 
-mozjpeg (IJG/BSD), zune-jpeg (MIT/Apache-2.0/Zlib), zensim (MIT/Apache-2.0), fast_image_resize (MIT/Apache-2.0) y Tauri (MIT/Apache-2.0). Fuentes: Bricolage Grotesque y Geist (SIL OFL 1.1). Las fotos de las capturas son de la Kodak Lossless True Color Image Suite.
+mozjpeg (IJG/BSD), zune-jpeg (MIT/Apache-2.0/Zlib), zensim (MIT/Apache-2.0), fast_image_resize (MIT/Apache-2.0) y Tauri (MIT/Apache-2.0). Fuentes: Bricolage Grotesque y Geist (SIL OFL 1.1). La foto del comparador es de la Kodak Lossless True Color Image Suite; las demás, del autor.

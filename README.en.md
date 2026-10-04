@@ -13,18 +13,20 @@ Fino is a macOS app that recompresses JPEGs *perceptually*. It tries smaller and
 same resolution · same metadata · SSIMULACRA 2 ≈ 85
 ```
 
-![Finished session: savings per photo and in total](docs/screenshots/optimize-dark.png)
+![Fino optimizing a batch of 1,248 camera photos](docs/screenshots/running-dark.png)
 
 <table>
   <tr>
     <td><img src="docs/screenshots/compare.jpg" alt="Before/after viewer with a split divider"></td>
-    <td><img src="docs/screenshots/drop-light.png" alt="Start screen in light mode"></td>
+    <td><img src="docs/screenshots/done-light.png" alt="Finished session: savings per photo"></td>
   </tr>
   <tr>
     <td><img src="docs/screenshots/history-light.png" alt="Session history"></td>
     <td><img src="docs/screenshots/settings-light.png" alt="Settings"></td>
   </tr>
 </table>
+
+<sub>Screenshots use sample data: real camera photos, figures simulated at the measured savings (~67%).</sub>
 
 > The interface is in Spanish for now.
 
@@ -36,7 +38,7 @@ same resolution · same metadata · SSIMULACRA 2 ≈ 85
 | **Backups** | Stored in `~/Library/Application Support/app.fino.desktop/backups/`. They expire on their own (checked when Fino opens and whenever you return to it). Settings shows how much space they take and **frees** them; History discards a single session's backup. Backups deleted by hand are detected. |
 | **Export a copy** | Leaves originals untouched. Copies go to a `Fino` folder next to each photo or to a fixed destination, mirroring the folder structure. |
 | **Several sizes** | Up to 4 sizes per export (long edge, max width or max height). Honors EXIF orientation and never upscales. |
-| **Strength** | *Pristine* (indistinguishable even when flipping between versions), *Identical* (default) and *Compact*. |
+| **Strength** | *Flawless* (no difference even under a loupe), *Identical* (recommended: looks the same as the original) and *Compact* (a little lighter, for the web and social media). |
 | **Compare** | Before/after view with a draggable divider and a **100% loupe** that follows the cursor. Only offered while both the original and the optimized file are still in place. |
 | **History** | Total savings, sessions, undo, and a CSV log with the reason each file was skipped. |
 | **Light and dark** | Follows macOS or is fixed from Settings — title bar and dialogs included. |
@@ -68,7 +70,7 @@ JPEG ─► inspect ─► decode ─► [Lanczos3 resize]
 
 | Strength | Global (½ res) | Worst tile | True SSIMULACRA 2 |
 |---|---|---|---|
-| Pristine | ≥ 94.0 | ≥ 91.0 | ≈ 89 |
+| Flawless | ≥ 94.0 | ≥ 91.0 | ≈ 89 |
 | Identical | ≥ 91.5 | ≥ 86.5 | ≈ 85.5 |
 | Compact | ≥ 89.0 | ≥ 82.5 | ≈ 82 |
 
@@ -122,4 +124,4 @@ cargo run --release -p fino-core --example calibrate -- folder/with/jpegs
 
 ## Third-party licenses
 
-mozjpeg (IJG/BSD), zune-jpeg (MIT/Apache-2.0/Zlib), zensim (MIT/Apache-2.0), fast_image_resize (MIT/Apache-2.0) and Tauri (MIT/Apache-2.0). Fonts: Bricolage Grotesque and Geist (SIL OFL 1.1). Screenshot photos come from the Kodak Lossless True Color Image Suite.
+mozjpeg (IJG/BSD), zune-jpeg (MIT/Apache-2.0/Zlib), zensim (MIT/Apache-2.0), fast_image_resize (MIT/Apache-2.0) and Tauri (MIT/Apache-2.0). Fonts: Bricolage Grotesque and Geist (SIL OFL 1.1). The comparison photo comes from the Kodak Lossless True Color Image Suite; the others are the author's.
