@@ -16,6 +16,7 @@ pub fn run() {
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .manage(commands::OpenedPaths::default())
         .setup(|app| {
             // Thumbnails only live for the session that made them.
             if let Ok(cache) = app.path().app_cache_dir() {
@@ -44,7 +45,6 @@ pub fn run() {
                 store,
                 busy: AtomicBool::new(false),
                 cancel: AtomicBool::new(false),
-                opened: Default::default(),
                 backups: Default::default(),
                 window_size,
             });
@@ -82,11 +82,7 @@ pub fn run() {
                 .filter_map(|u| u.to_file_path().ok())
                 .map(|p| p.display().to_string())
                 .collect();
-            if let Some(state) = handle.try_state::<AppState>() {
-                if let Ok(mut pending) = state.opened.lock() {
-                    pending.extend(paths);
-                }
-            }
+            handle.state::<commands::OpenedPaths>().push(paths);
             let _ = handle.emit("open-paths", ());
         }
         #[cfg(not(target_os = "macos"))]

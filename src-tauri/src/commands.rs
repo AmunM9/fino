@@ -15,7 +15,6 @@ pub struct AppState {
     pub store: Store,
     pub busy: AtomicBool,
     pub cancel: AtomicBool,
-    pub opened: Mutex<Vec<String>>,
     /// Held by anything that deletes or restores backups (undo, discard, maintenance) so
     /// they never interleave.
     pub backups: Mutex<()>,
@@ -313,12 +312,32 @@ fn restore_session(state: &AppState, id: &str) -> Result<(), String> {
 /// Paths handed to Fino by Finder before the UI was listening. The UI drains them on mount
 /// and whenever `open-paths` fires, so nothing is lost on a cold "Open With" launch.
 #[tauri::command]
-pub fn take_opened_paths(state: State<AppState>) -> Vec<String> {
-    state
-        .opened
-        .lock()
-        .map(|mut v| std::mem::take(&mut *v))
-        .unwrap_or_default()
+pub fn take_opened_paths(opened: State<OpenedPaths>) -> Vec<String> {
+    let paths = opened.take();
+    if !paths.is_empty() {
+        eprintln!("fino: {} item(s) from Finder handed to the UI", paths.len());
+    }
+    paths
+}
+
+/// Paths Finder handed over (Dock drop, "Open With"). Managed when the app is built — not in
+/// `setup` — because on a cold launch macOS delivers them before setup has run.
+#[derive(Default)]
+pub struct OpenedPaths(Mutex<Vec<String>>);
+
+impl OpenedPaths {
+    pub fn push(&self, paths: Vec<String>) {
+        if let Ok(mut pending) = self.0.lock() {
+            pending.extend(paths);
+        }
+    }
+
+    fn take(&self) -> Vec<String> {
+        self.0
+            .lock()
+            .map(|mut v| std::mem::take(&mut *v))
+            .unwrap_or_default()
+    }
 }
 
 fn csv_field(value: &str) -> String {

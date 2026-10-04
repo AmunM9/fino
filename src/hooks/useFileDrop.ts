@@ -37,7 +37,14 @@ export function useFileDrop(onPaths: (paths: string[]) => void): boolean {
         .takeOpenedPaths()
         .then((paths) => paths.length > 0 && handler.current(paths))
         .catch(() => undefined);
-    listen("open-paths", drainOpened).then(keep).catch(() => undefined);
+    // Drain once the listener exists too: paths that arrived while it was being registered
+    // would otherwise wait for the next Finder event.
+    listen("open-paths", drainOpened)
+      .then((unlisten) => {
+        keep(unlisten);
+        void drainOpened();
+      })
+      .catch(() => undefined);
     void drainOpened();
 
     return () => {
