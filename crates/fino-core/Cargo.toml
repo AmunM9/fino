@@ -1,0 +1,25 @@
+[package]
+name = "fino-core"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+fast_image_resize = "6.1.0"
+filetime = "0.2.29"
+img-parts = "0.4.0"
+imgref = "1"
+libc = "0.2.190"
+memchr = "2"
+mozjpeg = "0.10.13"
+mozjpeg-sys = { version = "2", default-features = false, features = ["unwinding"] }
+rayon = "1.12"
+regex = "1"
+serde = { version = "1.0.229", features = ["derive"] }
+thiserror = "2"
+xattr = "1.6.1"
+zensim = "0.2.7"
+zune-jpeg = "0.5.15"
+
+[dev-dependencies]
+fast-ssim2 = { version = "0.8.2", features = ["imgref"] }
+tempfile = "3.27.0"
