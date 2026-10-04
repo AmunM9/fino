@@ -2,7 +2,7 @@
 //!
 //!     fino ~/Pictures/Trip                 # optimized copies in ~/Pictures/Trip/Fino
 //!     fino --in-place --long-edge 2048 *.jpg
-//!     fino ~/Downloads/IMG_0001.HEIC       # → ~/Downloads/Fino/IMG_0001.JPG
+//!     fino --heic ~/Downloads/IMG_0001.HEIC  # → ~/Downloads/Fino/IMG_0001.JPG
 
 use clap::{Parser, ValueEnum};
 use fino_core::files::{self, Job};
@@ -33,7 +33,7 @@ impl From<Level> for Strength {
 #[command(
     name = "fino",
     version,
-    about = "Smaller JPEGs that look exactly the same. HEIC photos become optimized JPEGs."
+    about = "Smaller JPEGs that look exactly the same. With --heic, HEIC photos become JPEGs to share."
 )]
 struct Cli {
     /// Photos or folders (folders are searched recursively).
@@ -70,9 +70,10 @@ struct Cli {
     #[arg(long)]
     force: bool,
 
-    /// Leave HEIC photos alone instead of converting them to JPEG.
+    /// Convert HEIC photos to JPEG for sharing (Compact strength; HDR, depth and portrait data
+    /// are dropped and files usually grow). Without it HEIC photos are left alone.
     #[arg(long)]
-    no_heic: bool,
+    heic: bool,
 
     /// Analyse and report, but write nothing.
     #[arg(long)]
@@ -94,7 +95,7 @@ impl Cli {
             resize: self.resize(),
             strip_location: self.strip_location,
             skip_optimized: !self.force,
-            convert_heic: !self.no_heic,
+            convert_heic: self.heic,
             ..Default::default()
         }
     }

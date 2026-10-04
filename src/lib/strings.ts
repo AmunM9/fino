@@ -66,7 +66,7 @@ export const t = {
 
   convert: {
     badge: "HEIC → JPEG",
-    hint: "Convertida de HEIC: cambio de tamaño frente al HEIC original.",
+    hint: "Convertida de HEIC a JPEG Compacta para compartir: cambio de tamaño frente al HEIC.",
     count: (n: number) => (n === 1 ? "1 convertida de HEIC" : `${n} convertidas de HEIC`),
   },
 
@@ -154,8 +154,9 @@ export const t = {
     skipOptimized: "Omitir fotos ya optimizadas",
     skipOptimizedHint: "Fino marca sus archivos para no recomprimirlos dos veces.",
     convertHeic: "Convertir HEIC a JPEG",
-    convertHeicHint:
-      "Las fotos HEIC (iPhone) pasan a JPEG optimizado con sus metadatos y su HDR. Al optimizar originales, el HEIC queda en el respaldo.",
+    convertHeicOff: "Las fotos HEIC se dejan como están: ya son el formato más liviano.",
+    convertHeicOn:
+      "Para compartir: se convierten en JPEG en intensidad Compacta. Se quitan el HDR, la profundidad y los datos de retrato; el archivo puede crecer.",
     theme: "Tema",
     themes: { system: "Tema del sistema", light: "Tema claro", dark: "Tema oscuro" },
   },
@@ -197,5 +198,5 @@ export const skipCopy: Record<SkipReason, string> = {
   embeddedMedia: "Contiene video (Motion Photo)",
   hdrPhoto: "HDR que un JPEG no puede guardar",
   spatialPhoto: "Foto espacial (3D)",
-  conversionOff: "Conversión HEIC desactivada",
+  conversionOff: "HEIC: ya es el formato más liviano",
 };

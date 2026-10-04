@@ -1,6 +1,7 @@
-//! HEIC → JPEG: the system decodes the pixels, Fino's perceptual search encodes them, and the
-//! original metadata (EXIF with Apple's MakerNote, XMP, ICC) plus any HDR gain map, depth or
-//! portrait matte travel along byte for byte.
+//! HEIC → JPEG, for sharing: the system decodes the pixels and Fino's perceptual search
+//! encodes them at the Compact strength. The original EXIF (with Apple's MakerNote), XMP and
+//! ICC travel byte for byte; the HDR gain map, depth and portrait mattes are dropped — the
+//! JPEG is meant to open anywhere and stay close to the HEIC's size.
 
 pub mod container;
 #[cfg(target_os = "macos")]
@@ -9,7 +10,11 @@ pub mod decode;
 pub use container::{inspect, is_heif, HeifInfo};
 
 use crate::error::{Result, SkipReason};
-use crate::options::OptimizeOptions;
+use crate::options::{OptimizeOptions, Strength};
+
+/// Conversions always use this strength: a JPEG at the source's own quality weighs far more
+/// than the HEIC (it is the less efficient format), Compact keeps it near the HEIC's size.
+pub const CONVERSION_STRENGTH: Strength = Strength::Compact;
 use crate::Prepared;
 
 /// Why a HEIC cannot be converted, decided from the container alone (no decoding).
@@ -43,20 +48,18 @@ pub fn prepare<'a>(
     data: &'a [u8],
     options: &OptimizeOptions,
 ) -> Result<std::result::Result<Prepared<'a>, SkipReason>> {
-    use crate::jpeg::{exif, metadata, mpf};
+    use crate::jpeg::{exif, metadata};
     use crate::optimize::Converted;
 
     let info = inspect(data)?;
     if let Some(reason) = precheck(&info, options) {
         return Ok(Err(reason));
     }
-    // The pixel budget is checked from the header, before anything is allocated.
-    let Some(decoded) = decode::decode(data, true, options.max_pixels)? else {
+    // The pixel budget is checked from the header, before anything is allocated. Auxiliary
+    // images (gain map, depth, mattes) are not carried over: the JPEG is the SDR photo.
+    let Some(decoded) = decode::decode(data, false, options.max_pixels)? else {
         return Ok(Err(SkipReason::TooLarge));
     };
-    if info.iso_gain_map && decoded.unreadable_iso_gain_map {
-        return Ok(Err(SkipReason::HdrGainMap)); // this macOS cannot copy an ISO gain map
-    }
 
     // The rotation always travels as an EXIF tag (pixels stay as stored), so auxiliary
     // images such as the gain map stay aligned with the primary.
@@ -93,17 +96,17 @@ pub fn prepare<'a>(
             .unwrap_or_default(),
     );
 
-    let secondaries = match decoded.carrier {
-        Some(carrier) => mpf::secondary_images(&carrier)?,
-        None => vec![],
+    let options = OptimizeOptions {
+        strength: CONVERSION_STRENGTH,
+        ..options.clone()
     };
     Ok(Ok(Prepared::converted(
         pixels,
         orientation,
-        options,
+        &options,
         Converted {
             segments,
-            secondaries,
+            secondaries: vec![],
         },
     )))
 }

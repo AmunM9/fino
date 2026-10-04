@@ -163,7 +163,7 @@ fn process_bytes(
         strip_location: s.strip_location,
         skip_optimized: s.skip_optimized,
         quality_hint: ctx.hint.get(),
-        convert_heic: s.convert_heic,
+        convert_heic: s.heic_to_jpeg,
         ..Default::default()
     };
     let original_bytes = data.len() as u64;
@@ -569,6 +569,32 @@ mod tests {
         std::fs::read(path).unwrap()
     }
 
+    #[test]
+    fn by_default_heic_photos_are_left_untouched() {
+        let dir = tempfile::tempdir().unwrap();
+        let photos = dir.path().join("photos");
+        std::fs::create_dir_all(&photos).unwrap();
+        write_camera_jpeg(&photos.join("a.jpg"));
+        let heic = photos.join("IMG_0003.HEIC");
+        let bytes = std::fs::read(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../crates/fino-core/tests/fixtures/rotated.heic"
+        ))
+        .unwrap();
+        std::fs::write(&heic, &bytes).unwrap();
+
+        let record = run_in(dir.path(), Settings::default());
+
+        assert_eq!(std::fs::read(&heic).unwrap(), bytes, "HEIC untouched");
+        assert!(!photos.join("IMG_0003.JPG").exists());
+        let skipped = record
+            .results
+            .iter()
+            .find(|r| r.name == "IMG_0003.HEIC")
+            .unwrap();
+        assert_eq!(skipped.skip_reason, Some(SkipReason::ConversionOff));
+    }
+
     #[cfg(target_os = "macos")]
     #[test]
     fn replace_converts_heic_beside_it_and_keeps_it_for_undo() {
@@ -579,7 +605,11 @@ mod tests {
         let heic = photos.join("IMG_0001.HEIC");
         std::fs::write(&heic, heic_fixture()).unwrap();
 
-        let record = run_in(dir.path(), Settings::default());
+        let settings = Settings {
+            heic_to_jpeg: true,
+            ..Settings::default()
+        };
+        let record = run_in(dir.path(), settings);
 
         let jpeg = photos.join("IMG_0001.JPG");
         assert!(jpeg.exists() && !heic.exists(), "HEIC replaced by a JPEG");
@@ -613,6 +643,7 @@ mod tests {
         std::fs::write(photos.join("IMG_0002.MOV"), b"live video").unwrap();
         let settings = Settings {
             output_mode: OutputMode::Export,
+            heic_to_jpeg: true,
             ..Settings::default()
         };
 

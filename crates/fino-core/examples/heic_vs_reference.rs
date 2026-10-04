@@ -44,7 +44,15 @@ fn main() {
         let src = decode(&data, false, u64::MAX).unwrap().unwrap();
         let upright = resize::orient(&src.pixels, src.orientation);
         let t = std::time::Instant::now();
-        let fino = match fino_core::optimize(&data, &Default::default()).unwrap() {
+        let fino = match fino_core::optimize(
+            &data,
+            &fino_core::OptimizeOptions {
+                convert_heic: true,
+                ..Default::default()
+            },
+        )
+        .unwrap()
+        {
             Outcome::Optimized(o) => o.bytes,
             Outcome::Skipped(r) => {
                 println!("{stem}: Fino skipped ({r:?})");

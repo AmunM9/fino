@@ -31,8 +31,8 @@ export interface Settings {
   appearance: Appearance;
   /** The compact "mini" window instead of the full one. */
   compactWindow: boolean;
-  /** HEIC photos are converted to optimized JPEGs. */
-  convertHeic: boolean;
+  /** HEIC photos become Compact JPEGs for sharing (no HDR/depth/portrait data). Off by default. */
+  heicToJpeg: boolean;
 }
 
 export type FileStatus = "done" | "skipped" | "failed";

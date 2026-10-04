@@ -14,7 +14,7 @@ function asList(selection: string | string[] | null): string[] {
 /** Opens the native picker for photos (or a folder) and starts optimizing the choice. */
 export function usePhotoPicker(): (directory: boolean) => Promise<void> {
   const { settings, start, notify } = useApp();
-  const convertHeic = settings?.convertHeic ?? false;
+  const convertHeic = settings?.heicToJpeg ?? false;
 
   return useCallback(
     async (directory: boolean) => {

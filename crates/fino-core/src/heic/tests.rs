@@ -7,12 +7,20 @@ use crate::{codec, optimize, OptimizeOptions, Outcome, SkipReason};
 
 const GPS_IFD: u16 = 0x8825;
 
+/// Conversion turned on, as the "HEIC to JPEG" setting does.
+fn on() -> OptimizeOptions {
+    OptimizeOptions {
+        convert_heic: true,
+        ..OptimizeOptions::default()
+    }
+}
+
 fn convert(name: &str, options: &OptimizeOptions) -> Outcome {
     optimize(&fixture(name), options).unwrap()
 }
 
 fn converted(name: &str) -> Vec<u8> {
-    match convert(name, &OptimizeOptions::default()) {
+    match convert(name, &on()) {
         Outcome::Optimized(o) => {
             assert!(o.converted && !o.lossless);
             o.bytes
@@ -111,7 +119,7 @@ fn converts_to_a_jpeg_that_keeps_every_byte_of_metadata() {
 fn strip_location_removes_gps_from_converted_files() {
     let options = OptimizeOptions {
         strip_location: true,
-        ..OptimizeOptions::default()
+        ..on()
     };
     let Outcome::Optimized(o) = convert("rotated.heic", &options) else {
         panic!("not converted");
@@ -127,34 +135,29 @@ fn strip_location_removes_gps_from_converted_files() {
 }
 
 #[test]
-fn hdr_gain_maps_survive_the_conversion() {
-    let jpeg = converted("gainmap.heic");
-    let aux = aux_present(&jpeg);
-    assert!(
-        aux.iter().any(|k| k.contains("HDRGainMap")),
-        "aux found: {aux:?}"
-    );
-    assert_eq!(codec::decode(&jpeg, false).unwrap().width, 256);
-
-    if super::decode::aux_present(&fixture("isogainmap.heic"))
-        .iter()
-        .any(|k| k.contains("ISOGainMap"))
-    {
-        let iso = converted("isogainmap.heic");
-        assert!(aux_present(&iso).iter().any(|k| k.contains("ISOGainMap")));
+fn conversions_drop_hdr_depth_and_portrait_data() {
+    for name in ["gainmap.heic", "isogainmap.heic"] {
+        let jpeg = converted(name);
+        assert_eq!(
+            aux_present(&jpeg),
+            Vec::<String>::new(),
+            "{name}: SDR JPEG only"
+        );
+        assert!(
+            jpeg::mpf::secondary_images(&jpeg).is_err(),
+            "{name}: no MPF images"
+        );
+        assert_eq!(codec::decode(&jpeg, false).unwrap().width, 256);
     }
 }
 
 #[test]
 fn hdr_primaries_and_disabled_conversion_are_skipped_with_a_reason() {
     assert_eq!(
-        convert("hlg.heic", &OptimizeOptions::default()),
+        convert("hlg.heic", &on()),
         Outcome::Skipped(SkipReason::HdrPhoto)
     );
-    let off = OptimizeOptions {
-        convert_heic: false,
-        ..OptimizeOptions::default()
-    };
+    let off = OptimizeOptions::default(); // conversion is off unless asked for
     assert_eq!(
         convert("plain.heic", &off),
         Outcome::Skipped(SkipReason::ConversionOff)
@@ -162,22 +165,22 @@ fn hdr_primaries_and_disabled_conversion_are_skipped_with_a_reason() {
 }
 
 #[test]
-fn every_strength_produces_a_jpeg_and_stricter_is_never_smaller() {
+fn conversions_always_use_the_compact_strength() {
     use crate::Strength::*;
-    let sizes: Vec<usize> = [Pristine, Identical, Compact]
+    let outputs: Vec<Vec<u8>> = [Pristine, Identical, Compact]
         .into_iter()
         .map(|strength| {
-            let options = OptimizeOptions {
-                strength,
-                ..OptimizeOptions::default()
-            };
+            let options = OptimizeOptions { strength, ..on() };
             match convert("plain.heic", &options) {
-                Outcome::Optimized(o) => o.bytes.len(),
+                Outcome::Optimized(o) => o.bytes,
                 other => panic!("{strength:?}: {other:?}"),
             }
         })
         .collect();
-    assert!(sizes[0] >= sizes[1] && sizes[1] >= sizes[2], "{sizes:?}");
+    assert!(
+        outputs.windows(2).all(|w| w[0] == w[1]),
+        "same output whatever the setting"
+    );
 }
 
 #[test]

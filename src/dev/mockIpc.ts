@@ -103,7 +103,7 @@ let settings: Settings = {
   skipOptimized: true,
   appearance: "system",
   compactWindow: false,
-  convertHeic: true,
+  heicToJpeg: false,
 };
 
 /** Clicks a button by its accessible name once the UI has rendered it. */

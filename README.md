@@ -34,7 +34,7 @@ misma resolución · mismos metadatos · SSIMULACRA 2 ≈ 85
 |---|---|
 | **Optimizar originales** | Reemplaza cada foto. Antes guarda un respaldo para que puedas **deshacer la sesión** (retención de 1, 7 o 30 días). |
 | **Respaldos** | Viven en `~/Library/Application Support/app.fino.desktop/backups/`. Se borran solos al vencer (Fino lo revisa al abrirse y al volver a la ventana). En Ajustes ves cuánto ocupan y puedes **liberarlos**; en Historial, descartar el de una sesión. Si los borras a mano, Fino lo detecta. |
-| **HEIC → JPEG** | Las fotos HEIC (iPhone) se convierten en JPEG optimizados con EXIF, XMP, perfil de color y la nota de Apple intactos, **y conservan el HDR** (gain map), la profundidad y las máscaras de retrato. Las Live Photos siguen emparejadas con su video. Al optimizar originales, el HEIC queda en el respaldo; se puede desactivar en Ajustes. |
+| **HEIC → JPEG (opcional)** | Desactivado de fábrica: el HEIC ya es el formato más liviano y Fino lo deja como está. Si lo activas (para compartir), cada HEIC pasa a JPEG en intensidad *Compacta* — unos 25 % más liviano que el HEIC en fotos de iPhone — con EXIF, XMP, perfil de color y orientación correctos; se quitan el HDR, la profundidad y los datos de retrato. Las Live Photos siguen emparejadas con su video. |
 | **Ventana mini** | Un dial pequeño que flota sobre las demás apps: arrastras fotos o carpetas y ves pasar cada foto mientras se optimiza. |
 | **Exportar copia** | Deja los originales intactos. Guarda las copias en una carpeta `Fino` junto a cada foto o en un destino fijo, y respeta la estructura de carpetas. |
 | **Varios tamaños** | Hasta 4 tamaños por exportación (lado largo, ancho máx. o alto máx.). Respeta la orientación EXIF y nunca amplía. |

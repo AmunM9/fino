@@ -38,8 +38,14 @@ fn main() {
             std::fs::write(std::env::temp_dir().join("fino-carrier.jpg"), c).unwrap();
         }
     }
-    if let fino_core::Outcome::Optimized(o) =
-        fino_core::optimize(&data, &Default::default()).unwrap()
+    if let fino_core::Outcome::Optimized(o) = fino_core::optimize(
+        &data,
+        &fino_core::OptimizeOptions {
+            convert_heic: true,
+            ..Default::default()
+        },
+    )
+    .unwrap()
     {
         let out = std::env::args()
             .nth(2)
