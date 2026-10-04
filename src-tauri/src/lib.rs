@@ -32,7 +32,7 @@ pub fn run() {
             if let Some(window) = app.get_webview_window("main") {
                 appearance::apply(&window, settings.appearance);
                 if settings.compact_window {
-                    window_mode::apply(&window, true, &window_size);
+                    window_mode::apply(&window, true, &window_size, false);
                 }
                 // Created hidden so it never flashes at the wrong size or theme.
                 let _ = window.show();

@@ -120,10 +120,22 @@
   }
 }
 
-/* Mini-window toggle sits at the foot of the rail, under the busy dot. */
-.rail__mini {
-  margin-top: auto;
+/* Mini-window toggle: top-right corner, in the title-bar strip. Switching modes keeps this
+   corner fixed, so the mini window's expand button lands under the same spot. */
+.shell__mini {
+  position: fixed;
+  top: 6px;
+  right: 10px;
+  z-index: 7;
 }
-.rail__busy + .rail__mini {
-  margin-top: var(--space-3);
+
+/* A soft cross-fade while the window resizes between modes. */
+.shell,
+.mini {
+  animation: mode-in var(--duration-normal) ease both;
+}
+@keyframes mode-in {
+  from {
+    opacity: 0;
+  }
 }

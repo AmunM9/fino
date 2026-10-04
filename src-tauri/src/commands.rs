@@ -107,7 +107,7 @@ pub fn save_settings(
     if let Some(window) = app.get_webview_window("main") {
         crate::appearance::apply(&window, settings.appearance);
         if previous.compact_window != settings.compact_window {
-            crate::window_mode::apply(&window, settings.compact_window, &state.window_size);
+            crate::window_mode::apply(&window, settings.compact_window, &state.window_size, true);
         }
     }
     Ok(settings)
