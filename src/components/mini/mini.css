@@ -93,6 +93,26 @@
   color: var(--color-text-3);
   text-align: center;
 }
+.mini__footer p {
+  margin: 0;
+}
+.mini__headline {
+  font-size: var(--text-base);
+  font-weight: 550;
+  color: var(--color-text);
+}
+.mini__headline strong {
+  font-weight: 750;
+}
+.mini__saved {
+  font-weight: 750;
+  color: var(--color-signal);
+}
+.mini__extra {
+  margin-top: 2px !important;
+  font-size: var(--text-xs);
+  color: var(--color-text-3);
+}
 
 /* ---------- Working: the photo being optimized fills the window ---------- */
 .mini__backdrop {

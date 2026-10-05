@@ -1,6 +1,6 @@
 import { AlertTriangle, ArrowRight, Check, Minus } from "lucide-react";
 import { isComparable } from "../../lib/compare";
-import { formatBytes, formatPercent, formatScore, savedFraction } from "../../lib/format";
+import { formatBytes, formatPercent, savedFraction } from "../../lib/format";
 import { skipCopy, t } from "../../lib/strings";
 import type { FileResult } from "../../lib/types";
 
@@ -54,19 +54,10 @@ export function ResultList({ results, onOpen }: Props) {
               <Detail result={r} />
               {r.status === "done" && (
                 <>
-                  {r.lossless ? (
-                    <span className="row__score row__score--lossless" title={t.losslessHint}>
-                      {t.lossless}
-                    </span>
-                  ) : (
-                    <span className="row__score num" title="Similitud perceptual (SSIMULACRA 2)">
-                      {r.score !== null && !r.converted ? formatScore(r.score) : ""}
-                    </span>
-                  )}
                   {r.converted ? (
                     <ConversionBadge result={r} />
                   ) : (
-                    <span className="badge badge--signal num">−{formatPercent(saved)}</span>
+                    <span className="badge badge--signal num" title={r.lossless ? t.losslessHint : undefined}>−{formatPercent(saved)}</span>
                   )}
                 </>
               )}

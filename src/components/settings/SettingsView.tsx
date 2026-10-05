@@ -1,4 +1,5 @@
-import { ask, open } from "@tauri-apps/plugin-dialog";
+import { open } from "@tauri-apps/plugin-dialog";
+import { useConfirm } from "../ui/ConfirmDialog";
 import { FolderOutput, Monitor, Moon, RefreshCw, Sun, Trash2 } from "lucide-react";
 import type { ReactNode } from "react";
 import { formatBytes, prettyPath } from "../../lib/format";
@@ -37,13 +38,14 @@ function BackupSpace() {
   const bytes = history?.backupBytes ?? 0;
   const undoable = history?.sessions.filter((s) => s.canUndo && s.backupBytes > 0).length ?? 0;
   const size = formatBytes(bytes);
+  const confirm = useConfirm();
 
   const confirmFree = async () => {
-    const ok = await ask(t.settings.freeConfirm(size), {
+    const { ok } = await confirm({
       title: t.settings.freeTitle,
-      kind: "warning",
+      body: t.settings.freeConfirm(size),
       okLabel: t.settings.freeOk,
-      cancelLabel: t.session.confirmCancel,
+      danger: true,
     });
     if (ok) await freeBackups();
   };

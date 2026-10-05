@@ -206,6 +206,8 @@ pub struct SessionView {
     pub comparable: bool,
     /// Disk space this session's undo backups take right now.
     pub backup_bytes: u64,
+    /// Where its photos came from; `None` for a session without files.
+    pub origin: Option<crate::origin::Origin>,
 }
 
 /// History plus live disk state; never persisted.

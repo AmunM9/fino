@@ -43,6 +43,27 @@ function ReplaceSheet({ prompt }: { prompt: ReplacePrompt }) {
   );
 }
 
+/** What the batch achieved, said loud enough to read at a glance. */
+function DoneSummary({ ready, fraction, converted, skipped }: { ready: number; fraction: number | null; converted: number; skipped: number }) {
+  const extra = [converted > 0 ? t.convert.count(converted) : null, skipped > 0 ? t.convert.skippedMini(skipped) : null]
+    .filter(Boolean)
+    .join(" · ");
+  return (
+    <>
+      <p className="mini__headline">
+        <strong>{formatCount(ready)}</strong> {t.mini.ready(ready)}
+        {fraction !== null && (
+          <>
+            {" · "}
+            <span className="mini__saved">−{formatPercent(fraction)}</span>
+          </>
+        )}
+      </p>
+      {extra && <p className="mini__extra">{extra}</p>}
+    </>
+  );
+}
+
 /** The compact droplet window: drop photos on it and watch the savings dial fill. */
 export function MiniView({ isOver }: { isOver: boolean }) {
   const { session, cancel, updateSettings, replacePrompt } = useApp();
@@ -55,15 +76,18 @@ export function MiniView({ isOver }: { isOver: boolean }) {
     : [];
   const fraction = savedFraction(stats.originalBytes, stats.outputBytes);
 
-  // The mini window has no result list, so HEIC left alone is said here instead.
+  // The mini window has no result list, so the whole batch is summed up here.
   const heicSkipped = session.results.filter((r) => r.skipReason === "conversionOff").length;
-  const footer = running
-    ? t.mini.progress(formatCount(stats.processed), formatCount(session.total))
-    : done && heicSkipped > 0
-      ? t.convert.skippedMini(heicSkipped)
-      : done && stats.savedBytes > 0
-        ? t.mini.done(formatCount(stats.optimized), formatPercent(fraction))
-        : t.mini.drop;
+  const ready = stats.optimized + stats.converted;
+  const footer = running ? (
+    t.mini.progress(formatCount(stats.processed), formatCount(session.total))
+  ) : done && ready > 0 ? (
+    <DoneSummary ready={ready} fraction={stats.savedBytes > 0 ? fraction : null} converted={stats.converted} skipped={heicSkipped} />
+  ) : done && heicSkipped > 0 ? (
+    t.convert.skippedMini(heicSkipped)
+  ) : (
+    t.mini.drop
+  );
 
   return (
     <div className="mini" data-phase={session.phase} data-over={isOver} data-photo={previews.length > 0} data-tauri-drag-region>
@@ -96,9 +120,9 @@ export function MiniView({ isOver }: { isOver: boolean }) {
           <Plus aria-hidden />
         </button>
       )}
-      <p className="mini__footer num" aria-live="polite" data-tauri-drag-region>
+      <div className="mini__footer num" aria-live="polite" data-tauri-drag-region>
         {isOver ? t.drop.hovering : footer}
-      </p>
+      </div>
 
       {replacePrompt && <ReplaceSheet prompt={replacePrompt} />}
     </div>

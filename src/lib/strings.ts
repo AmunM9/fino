@@ -51,11 +51,13 @@ export const t = {
 
   mini: {
     enter: "Ventana mini",
+    enterHint: "Ventana mini: siempre encima de las demás, para soltar fotos desde cualquier lugar",
     expand: "Ventana completa",
     add: "Elegir fotos",
     drop: "Suelta fotos o carpetas aquí",
     progress: (done: string, total: string) => `${done} de ${total}`,
-    done: (photos: string, percent: string) => `${photos} fotos · ${percent} más livianas`,
+    ready: (n: number) => (n === 1 ? "foto lista" : "fotos listas"),
+    lighter: "más livianas",
     replaceTitle: "Se reemplazarán los archivos",
     replaceBody: (n: number, backups: boolean) =>
       `Fino va a sobrescribir ${n === 1 ? "1 elemento" : `${n} elementos`} con su versión optimizada.` +
@@ -66,9 +68,9 @@ export const t = {
 
   convert: {
     badge: "HEIC → JPEG",
-    hint: "Convertida de HEIC a JPEG Compacta para compartir: cambio de tamaño frente al HEIC.",
+    hint: "Convertida de HEIC a JPEG Compacta: cambio de tamaño frente al HEIC.",
     count: (n: number) => (n === 1 ? "1 convertida de HEIC" : `${n} convertidas de HEIC`),
-    skippedMini: (n: number) => `${n === 1 ? "1 HEIC omitida" : `${n} HEIC omitidas`} · actívalas en Ajustes`,
+    skippedMini: (n: number) => `${n} HEIC sin convertir · conversión desactivada en Ajustes`,
   },
 
   lossless: "Sin pérdida",
@@ -96,7 +98,11 @@ export const t = {
     date: "Fecha",
     files: "Fotos",
     saved: "Ahorro",
-    mode: "Modo",
+    origin: "Origen",
+    originMore: (n: number) => (n === 1 ? "y 1 más" : `y ${n} más`),
+    originFolders: (n: number) => `${n} carpetas`,
+    originScattered: "Varias ubicaciones",
+    originReveal: (path: string) => `${path} · Mostrar en Finder`,
     replaced: "Originales",
     exported: "Exportadas",
     exportLog: "Exportar CSV",
@@ -156,7 +162,7 @@ export const t = {
     skipOptimizedHint: "Fino marca sus archivos para no recomprimirlos dos veces.",
     convertHeic: "Convertir HEIC a JPEG",
     convertHeicHint:
-      "Se convierten en JPEG en intensidad Compacta. Se quitan el HDR, la profundidad y los datos de retrato; el archivo puede crecer.",
+      "Se convierten en JPEG en intensidad Compacta. Se quitan el HDR, la profundidad y los datos de retrato.",
     theme: "Tema",
     themes: { system: "Tema del sistema", light: "Tema claro", dark: "Tema oscuro" },
   },
@@ -198,5 +204,5 @@ export const skipCopy: Record<SkipReason, string> = {
   embeddedMedia: "Contiene video (Motion Photo)",
   hdrPhoto: "HDR que un JPEG no puede guardar",
   spatialPhoto: "Foto espacial (3D)",
-  conversionOff: "HEIC: conversión desactivada (Ajustes)",
+  conversionOff: "Sin convertir: conversión HEIC desactivada en Ajustes",
 };

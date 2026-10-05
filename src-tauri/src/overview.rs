@@ -2,8 +2,9 @@
 //! so actions whose files moved or vanished are not offered.
 
 use crate::model::{FileResult, FileStatus, Overview, SessionView};
+use crate::origin;
 use crate::store::Store;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 /// Both sides of the before/after view are still where Fino left them. Exported copies can
 /// be moved or deleted, and a replaced original lives in a backup that expires or is freed.
@@ -38,12 +39,18 @@ fn session_comparable(store: &Store, id: &str) -> bool {
 /// History page of the newest `limit` sessions, with what is on disk now.
 pub fn build(store: &Store, limit: usize) -> Result<Overview, String> {
     let sizes = store.backup_sizes();
+    let home = std::env::var_os("HOME").map(PathBuf::from);
     let sessions = store
         .sessions(limit)?
         .into_iter()
         .map(|summary| SessionView {
             comparable: !summary.undone && session_comparable(store, &summary.id),
             backup_bytes: sizes.get(&summary.id).copied().unwrap_or(0),
+            // A failed lookup only costs the label, never the History screen.
+            origin: store
+                .session_paths(&summary.id)
+                .ok()
+                .and_then(|paths| origin::describe(&paths, home.as_deref())),
             summary,
         })
         .collect();
@@ -60,7 +67,6 @@ mod tests {
     use crate::model::{OutputFile, OutputMode, SessionRecord, SessionSummary};
     use fino_core::Strength;
     use std::fs;
-    use std::path::PathBuf;
 
     fn result(original: Option<PathBuf>, output: PathBuf) -> FileResult {
         FileResult {
@@ -177,5 +183,10 @@ mod tests {
         assert_eq!(wire["id"], "1", "summary fields are flattened");
         assert_eq!(wire["backupBytes"], 5);
         assert_eq!(wire["comparable"], true);
+        assert_eq!(
+            wire["origin"]["kind"], "files",
+            "origin travels with the session"
+        );
+        assert_eq!(wire["origin"]["first"], "b.jpg");
     }
 }

@@ -33,7 +33,7 @@ impl From<Level> for Strength {
 #[command(
     name = "fino",
     version,
-    about = "Smaller JPEGs that look exactly the same. With --heic, HEIC photos become JPEGs to share."
+    about = "Smaller JPEGs that look exactly the same. With --heic, HEIC photos become JPEGs."
 )]
 struct Cli {
     /// Photos or folders (folders are searched recursively).
@@ -70,8 +70,8 @@ struct Cli {
     #[arg(long)]
     force: bool,
 
-    /// Convert HEIC photos to JPEG for sharing (Compact strength; HDR, depth and portrait data
-    /// are dropped and files usually grow). Without it HEIC photos are left alone.
+    /// Convert HEIC photos to JPEG (Compact strength; HDR, depth and portrait data
+    /// are dropped). Without it HEIC photos are left alone.
     #[arg(long)]
     heic: bool,
 

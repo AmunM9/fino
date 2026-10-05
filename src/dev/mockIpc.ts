@@ -71,16 +71,43 @@ const summary = (id: string, startedAt: number, extra: Partial<SessionSummary> =
   ...extra,
 });
 
-const entry = (s: SessionSummary, comparable: boolean, backupBytes: number): SessionEntry => ({ ...s, comparable, backupBytes });
+const entry = (s: SessionSummary, comparable: boolean, backupBytes: number, origin: SessionEntry["origin"] = null): SessionEntry => ({
+  ...s,
+  comparable,
+  backupBytes,
+  origin,
+});
 
 const now = Date.now();
 let history: History = {
   totals: { savedBytes: 51_024_000_000, originalBytes: 93_000_000_000, photos: 26_065, sessions: 41, since: now - 86400000 * 210 },
   sessions: [
-    entry(summary("s4", now - 3600_000), true, 511_400_000),
-    entry(summary("s3", now - 86400000, { outputMode: "export", canUndo: false, photos: 489, savedBytes: 976_000_000, originalBytes: 1_537_000_000 }), false, 0),
-    entry(summary("s2", now - 86400000 * 3, { undone: true, canUndo: false, savedBytes: 0 }), false, 0),
-    entry(summary("s1", now - 86400000 * 9, { strength: "compact", canUndo: false, photos: 639, savedBytes: 1_288_000_000, originalBytes: 2_346_000_000 }), true, 0),
+    entry(summary("s4", now - 3600_000), true, 511_400_000, {
+      kind: "folder",
+      parent: "Boda Ana",
+      name: "JPG",
+      path: "~/Pictures/2026/Boda Ana/JPG",
+      reveal: "/Users/demo/Pictures/2026/Boda Ana/JPG",
+    }),
+    entry(summary("s3", now - 86400000, { outputMode: "export", canUndo: false, photos: 489, savedBytes: 976_000_000, originalBytes: 1_537_000_000 }), false, 0, {
+      kind: "folders",
+      name: "Proyectos 2026",
+      count: 3,
+      path: "~/Documents/Proyectos 2026",
+      reveal: null,
+    }),
+    entry(summary("s2", now - 86400000 * 3, { undone: true, canUndo: false, savedBytes: 0 }), false, 0, {
+      kind: "files",
+      first: "IMG_4412.HEIC",
+      more: 10,
+      path: "~/Desktop",
+      reveal: "/Users/demo/Desktop/IMG_4412.HEIC",
+    }),
+    entry(summary("s1", now - 86400000 * 9, { strength: "compact", canUndo: false, photos: 639, savedBytes: 1_288_000_000, originalBytes: 2_346_000_000 }), true, 0, {
+      kind: "scattered",
+      path: null,
+      reveal: null,
+    }),
   ],
   backupBytes: 511_400_000,
 };

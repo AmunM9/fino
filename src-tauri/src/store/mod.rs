@@ -165,6 +165,21 @@ impl Store {
         rows.collect::<rusqlite::Result<_>>().map_err(sql_err)
     }
 
+    /// Source paths of a session's files, in order.
+    pub fn session_paths(&self, session_id: &str) -> Result<Vec<PathBuf>, String> {
+        let id = valid_id(session_id)?;
+        let db = self.db()?;
+        let mut stmt = db
+            .prepare_cached("SELECT path FROM files WHERE session_id = ?1 ORDER BY idx")
+            .map_err(sql_err)?;
+        let rows = stmt
+            .query_map([id], |row| row.get::<_, String>(0))
+            .map_err(sql_err)?;
+        rows.map(|path| path.map(PathBuf::from))
+            .collect::<rusqlite::Result<_>>()
+            .map_err(sql_err)
+    }
+
     pub fn record(&self, session_id: &str) -> Result<SessionRecord, String> {
         let id = valid_id(session_id)?;
         let db = self.db()?;

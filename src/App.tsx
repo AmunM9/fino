@@ -6,6 +6,7 @@ import { OptimizeView } from "./components/optimize/OptimizeView";
 import { SessionPanel } from "./components/panel/SessionPanel";
 import { SettingsView } from "./components/settings/SettingsView";
 import { Rail } from "./components/shell/Rail";
+import { ConfirmProvider } from "./components/ui/ConfirmDialog";
 import { Notice } from "./components/ui/controls";
 import { useFileDrop } from "./hooks/useFileDrop";
 import { t } from "./lib/strings";
@@ -20,7 +21,7 @@ function MiniToggle() {
       type="button"
       className="icon-btn shell__mini"
       aria-label={t.mini.enter}
-      title={t.mini.enter}
+      title={t.mini.enterHint}
       onClick={() => updateSettings({ compactWindow: true })}
     >
       <PictureInPicture2 />
@@ -44,7 +45,7 @@ function Shell() {
   return (
     <div className="shell">
       <div className="shell__drag" data-tauri-drag-region />
-      <MiniToggle />
+      {view === "optimize" && <MiniToggle />}
       <Rail />
       <main className="shell__main">
         {view === "optimize" && <OptimizeView />}
@@ -65,8 +66,10 @@ function Shell() {
 
 export default function App() {
   return (
-    <AppProvider>
-      <Shell />
-    </AppProvider>
+    <ConfirmProvider>
+      <AppProvider>
+        <Shell />
+      </AppProvider>
+    </ConfirmProvider>
   );
 }

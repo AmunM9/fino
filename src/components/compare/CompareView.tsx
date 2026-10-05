@@ -31,6 +31,8 @@ export function CompareView() {
   const stage = useElementSize(stageRef);
   /** Pairs whose files failed to load (moved or deleted while Fino was open). */
   const [broken, setBroken] = useState<ReadonlySet<string>>(new Set());
+  /** The output as displayed, EXIF rotation applied: the stored size is sideways for portraits. */
+  const [shown, setShown] = useState<{ src: string; width: number; height: number } | null>(null);
 
   const results = compare?.results ?? [];
   const index = compare?.index ?? 0;
@@ -58,6 +60,19 @@ export function CompareView() {
     return () => window.removeEventListener("keydown", onKey);
   }, [close, go]);
 
+  // Warm up the next pair only (never the whole list), so stepping forward is instant.
+  useEffect(() => {
+    if (results.length < 2) return;
+    const next = results[(index + 1) % results.length];
+    const paths = [next.originalPath, next.outputs[0]?.path].filter((p): p is string => Boolean(p));
+    for (const path of paths) {
+      const img = new Image();
+      img.decoding = "async";
+      img.src = fileUrl(path);
+      img.decode().catch(() => {}); // a missing file is handled when it is actually shown
+    }
+  }, [results, index]);
+
   if (!current) return null;
   const output = current.outputs[0];
   const pair = `${current.originalPath}|${output.path}`;
@@ -72,8 +87,9 @@ export function CompareView() {
   const onPointerMove = (e: ReactPointerEvent) => {
     const at = locate(e);
     if (!at) return;
-    setPointer({ x: at.x, y: at.y });
+    // While the divider is held the photo stays put; only the divider follows the cursor.
     if (dragging.current) setSplit(at.x);
+    else setPointer({ x: at.x, y: at.y });
   };
   const onPointerDown = (e: ReactPointerEvent) => {
     dragging.current = true;
@@ -87,13 +103,15 @@ export function CompareView() {
 
   // At 100 % both images are drawn at the output's pixel size and panned with the cursor;
   // the clip is converted from stage space into image space so it tracks the divider.
-  const actual = zoom === "actual" && stage.width > 0;
-  const panX = actual ? panFor(pointer.x * stage.width, stage.width, output.width) : 0;
-  const panY = actual ? panFor(pointer.y * stage.height, stage.height, output.height) : 0;
+  const outputSrc = fileUrl(output.path);
+  const size = shown?.src === outputSrc ? shown : null;
+  const actual = zoom === "actual" && stage.width > 0 && size !== null;
+  const panX = actual ? panFor(pointer.x * stage.width, stage.width, size.width) : 0;
+  const panY = actual ? panFor(pointer.y * stage.height, stage.height, size.height) : 0;
   const actualStyle = actual
-    ? { width: output.width, height: output.height, transform: `translate(${panX}px, ${panY}px)` }
+    ? { width: size.width, height: size.height, transform: `translate(${panX}px, ${panY}px)` }
     : undefined;
-  const clip = actual ? clamp01((split * stage.width - panX) / output.width) : split;
+  const clip = actual ? clamp01((split * stage.width - panX) / size.width) : split;
   const saved = savedFraction(current.originalBytes, current.outputBytes);
 
   return (
@@ -139,7 +157,7 @@ export function CompareView() {
         <div
           ref={stageRef}
           className="compare__stage"
-          data-zoom={zoom}
+          data-zoom={actual ? "actual" : "fit"}
           onPointerMove={onPointerMove}
           onPointerDown={onPointerDown}
           onPointerUp={onPointerUp}
@@ -157,14 +175,19 @@ export function CompareView() {
             alt={t.compare.original}
             style={actualStyle}
             draggable={false}
+            decoding="async"
             onError={markBroken}
           />
           <img
             className="compare__img compare__img--after"
-            src={fileUrl(output.path)}
+            src={outputSrc}
             alt={t.compare.fino}
+            onLoad={(e) =>
+              setShown({ src: outputSrc, width: e.currentTarget.naturalWidth, height: e.currentTarget.naturalHeight })
+            }
             style={{ ...actualStyle, clipPath: `inset(0 0 0 ${clip * 100}%)` }}
             draggable={false}
+            decoding="async"
             onError={markBroken}
           />
           <div className="compare__divider" style={{ transform: `translateX(${split * stage.width}px)` }} aria-hidden="true">

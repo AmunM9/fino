@@ -36,7 +36,7 @@ same resolution · same metadata · SSIMULACRA 2 ≈ 85
 |---|---|
 | **Optimize originals** | Replaces each photo, keeping a backup first so you can **undo the whole session** (kept 1, 7 or 30 days). |
 | **Backups** | Stored in `~/Library/Application Support/app.fino.desktop/backups/`. They expire on their own (checked when Fino opens and whenever you return to it). Settings shows how much space they take and **frees** them; History discards a single session's backup. Backups deleted by hand are detected. |
-| **HEIC → JPEG (optional)** | Off by default: HEIC is already the lighter format and Fino leaves it alone. Turned on (for sharing), each HEIC becomes a JPEG at the *Compact* strength — about 25% lighter than the HEIC on iPhone photos — with EXIF, XMP, colour profile and orientation intact; HDR, depth and portrait data are dropped. Live Photos stay paired with their video. |
+| **HEIC → JPEG (optional)** | Off by default: HEIC is already the lighter format and Fino leaves it alone. Turned on, each HEIC becomes a JPEG at the *Compact* strength — about 25% lighter than the HEIC on iPhone photos — with EXIF, XMP, colour profile and orientation intact; HDR, depth and portrait data are dropped. Live Photos stay paired with their video. |
 | **Mini window** | A small dial that floats over other apps: drop photos or folders on it and watch each photo go by as it is optimized. |
 | **Export a copy** | Leaves originals untouched. Copies go to a `Fino` folder next to each photo or to a fixed destination, mirroring the folder structure. |
 | **Several sizes** | Up to 4 sizes per export (long edge, max width or max height). Honors EXIF orientation and never upscales. |

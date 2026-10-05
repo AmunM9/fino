@@ -4,14 +4,14 @@
   z-index: 40;
   display: flex;
   flex-direction: column;
-  background: oklch(10% 0.004 255);
-  color: oklch(95% 0.004 255);
+  background: var(--color-bg);
+  color: var(--color-text);
   animation: compare-in var(--duration-normal) var(--ease-out-expo);
 }
+/* Opacity only: scaling would repaint two full-resolution photos on every frame. */
 @keyframes compare-in {
   from {
     opacity: 0;
-    transform: scale(1.01);
   }
 }
 
@@ -22,7 +22,7 @@
   gap: var(--space-5);
   height: 56px;
   padding: 0 var(--space-4) 0 92px; /* clear the traffic lights */
-  border-bottom: 1px solid oklch(100% 0 0 / 0.07);
+  border-bottom: 1px solid var(--color-line);
 }
 .compare__title {
   display: flex;
@@ -37,7 +37,7 @@
   font-weight: 600;
 }
 .compare__title span {
-  color: oklch(60% 0.01 255);
+  color: var(--color-text-3);
   font-size: var(--text-sm);
 }
 .compare__facts {
@@ -47,11 +47,11 @@
 }
 .compare__fact {
   font-size: var(--text-sm);
-  color: oklch(70% 0.01 255);
+  color: var(--color-text-2);
 }
 .compare__fact b {
   margin-left: 4px;
-  color: oklch(95% 0.004 255);
+  color: var(--color-text);
   font-weight: 650;
 }
 .compare__tools {
@@ -61,12 +61,12 @@
 }
 .compare .icon-btn,
 .compare .btn--ghost {
-  color: oklch(78% 0.01 255);
+  color: var(--color-text-2);
 }
 .compare .icon-btn:hover,
 .compare .btn--ghost:hover {
-  color: white;
-  background: oklch(100% 0 0 / 0.08);
+  color: var(--color-text);
+  background: var(--color-raised);
 }
 
 .compare__stage {
@@ -150,7 +150,11 @@
   bottom: var(--space-4);
   padding: 5px 10px;
   border-radius: var(--radius-pill);
-  background: oklch(0% 0 0 / 0.55);
+  border: 1px solid var(--color-line);
+  /* A chip of the theme's own surface: readable over the photo and over the backdrop. */
+  background: color-mix(in oklch, var(--color-panel) 88%, transparent);
+  color: var(--color-text);
+  box-shadow: 0 2px 10px oklch(0% 0 0 / 0.18);
   backdrop-filter: blur(8px);
   font-size: var(--text-xs);
   font-weight: 600;
@@ -166,5 +170,5 @@
 }
 .compare__missing {
   margin: auto;
-  color: oklch(70% 0.01 255);
+  color: var(--color-text-2);
 }

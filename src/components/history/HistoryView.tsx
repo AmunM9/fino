@@ -1,10 +1,12 @@
-import { ask, save } from "@tauri-apps/plugin-dialog";
+import { save } from "@tauri-apps/plugin-dialog";
+import { revealItemInDir } from "@tauri-apps/plugin-opener";
+import { useConfirm } from "../ui/ConfirmDialog";
 import { ArchiveX, Download, SplitSquareHorizontal, Undo2 } from "lucide-react";
 import { comparableResults } from "../../lib/compare";
 import { formatBytes, formatCount, formatDateTime, formatMonthYear, formatPercent, sizeParts } from "../../lib/format";
 import { errorMessage, ipc } from "../../lib/ipc";
 import { strengthCopy, t } from "../../lib/strings";
-import type { SessionEntry } from "../../lib/types";
+import type { Origin, SessionEntry } from "../../lib/types";
 import { useApp } from "../../state/AppProvider";
 import "./history.css";
 
@@ -20,8 +22,65 @@ function Tile({ label, value, unit, wide }: { label: string; value: string; unit
   );
 }
 
+function OriginName({ origin }: { origin: Origin }) {
+  switch (origin.kind) {
+    case "files":
+      return (
+        <>
+          <strong>{origin.first}</strong>
+          {origin.more > 0 && <span className="origin__dim"> {t.history.originMore(origin.more)}</span>}
+        </>
+      );
+    case "folder":
+      return (
+        <>
+          {origin.parent && <span className="origin__dim">{origin.parent} › </span>}
+          <strong>{origin.name}</strong>
+        </>
+      );
+    case "folders":
+      return (
+        <>
+          <strong>{origin.name}</strong>
+          <span className="origin__dim"> › {t.history.originFolders(origin.count)}</span>
+        </>
+      );
+    case "scattered":
+      return <strong>{t.history.originScattered}</strong>;
+  }
+}
+
+/** Where the photos came from, over how they were handled. Clicking shows it in Finder. */
+function OriginCell({ session }: { session: SessionEntry }) {
+  const { notify } = useApp();
+  const { origin } = session;
+  const mode = `${session.outputMode === "replace" ? t.history.replaced : t.history.exported} · ${strengthCopy[session.strength].name}`;
+  const reveal = origin?.reveal;
+  const name = origin ? <OriginName origin={origin} /> : <strong>—</strong>;
+  return (
+    <td className="origin">
+      {reveal ? (
+        <button
+          type="button"
+          className="origin__name"
+          title={t.history.originReveal(origin.path ?? reveal)}
+          onClick={() => revealItemInDir(reveal).catch((e) => notify(errorMessage(e)))}
+        >
+          {name}
+        </button>
+      ) : (
+        <span className="origin__name" title={origin?.path ?? undefined}>
+          {name}
+        </span>
+      )}
+      <span className="origin__mode">{mode}</span>
+    </td>
+  );
+}
+
 function SessionRow({ session }: { session: SessionEntry }) {
   const { undo, undoing, discardBackup, clearing, openCompare, notify, refreshHistory } = useApp();
+  const confirm = useConfirm();
   const fraction = session.originalBytes > 0 ? session.savedBytes / session.originalBytes : 0;
 
   const exportLog = async () => {
@@ -47,17 +106,17 @@ function SessionRow({ session }: { session: SessionEntry }) {
     }
   };
   const confirmUndo = async () => {
-    if (await ask(t.history.undoConfirm, { kind: "warning", okLabel: t.session.undo, cancelLabel: t.session.confirmCancel })) {
+    if ((await confirm({ title: t.history.undoConfirm, okLabel: t.session.undo })).ok) {
       await undo(session.id);
     }
   };
   const backupSize = formatBytes(session.backupBytes);
   const confirmDiscard = async () => {
-    const ok = await ask(t.history.discardConfirm(backupSize), {
+    const { ok } = await confirm({
       title: t.history.discardTitle,
-      kind: "warning",
+      body: t.history.discardConfirm(backupSize),
       okLabel: t.history.discardOk,
-      cancelLabel: t.session.confirmCancel,
+      danger: true,
     });
     if (ok) await discardBackup(session.id);
   };
@@ -67,12 +126,10 @@ function SessionRow({ session }: { session: SessionEntry }) {
     <tr data-undone={session.undone}>
       <td>{formatDateTime(session.startedAt)}</td>
       <td className="num">{formatCount(session.photos)}</td>
+      <OriginCell session={session} />
       <td className="num">{session.undone ? "—" : formatBytes(session.savedBytes)}</td>
       <td>
         {!session.undone && session.savedBytes > 0 && <span className="badge badge--signal num">−{formatPercent(fraction)}</span>}
-      </td>
-      <td className="history__mode">
-        {session.outputMode === "replace" ? t.history.replaced : t.history.exported} · {strengthCopy[session.strength].name}
       </td>
       <td className="history__actions">
         <button type="button" className="icon-btn" aria-label={compareLabel} title={compareLabel} onClick={compare} disabled={!session.comparable}>
@@ -138,9 +195,9 @@ export function HistoryView() {
               <tr>
                 <th>{t.history.date}</th>
                 <th>{t.history.files}</th>
+                <th>{t.history.origin}</th>
                 <th>{t.history.saved}</th>
                 <th />
-                <th>{t.history.mode}</th>
                 <th aria-label="Acciones" />
               </tr>
             </thead>

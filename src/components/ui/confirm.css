@@ -1,0 +1,76 @@
+/* The full window's alerts: the mini window's sheet as a small floating card. */
+.confirm {
+  width: min(360px, calc(100vw - 48px));
+  margin: auto;
+  padding: var(--space-6) var(--space-5) var(--space-5);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg);
+  color: var(--color-text);
+  box-shadow: var(--shadow-photo);
+  text-align: center;
+  animation: confirm-in var(--duration-normal) var(--ease-out-expo) both;
+}
+.confirm[open] {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+}
+.confirm::backdrop {
+  background: oklch(0% 0 0 / 0.35);
+  animation: confirm-fade var(--duration-normal) ease both;
+}
+@keyframes confirm-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+@keyframes confirm-fade {
+  from {
+    opacity: 0;
+  }
+}
+.confirm h2 {
+  margin: 0;
+  font-size: var(--text-md);
+  font-weight: 700;
+}
+.confirm p {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-2);
+  line-height: 1.45;
+}
+.confirm__actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+  width: 100%;
+  margin-top: var(--space-3);
+}
+.confirm__actions .btn {
+  justify-content: center;
+}
+.confirm .confirm__danger,
+.confirm .confirm__danger:hover {
+  border-color: transparent;
+  background: var(--color-danger);
+  color: oklch(98% 0 0);
+}
+.confirm .confirm__danger:hover {
+  filter: brightness(1.08);
+}
+.confirm__check {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--color-text-2);
+}
+.confirm__check input {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--color-signal);
+}

@@ -1,5 +1,5 @@
-import { ask } from "@tauri-apps/plugin-dialog";
 import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from "react";
+import { useConfirm } from "../components/ui/ConfirmDialog";
 import { useAppearance } from "../hooks/useAppearance";
 import { errorMessage, ipc } from "../lib/ipc";
 import { t } from "../lib/strings";
@@ -65,14 +65,6 @@ function mustConfirmReplace(settings: Settings | null): boolean {
   return settings === null || (settings.outputMode === "replace" && settings.warnBeforeReplace);
 }
 
-function askNatively(settings: Settings | null, count: number): Promise<boolean> {
-  return ask(t.session.confirmReplace(count, settings?.keepBackups ?? true), {
-    title: t.session.confirmReplaceTitle,
-    kind: "warning",
-    okLabel: t.session.confirmOk,
-    cancelLabel: t.session.confirmCancel,
-  });
-}
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [view, setView] = useState<View>("optimize");
@@ -85,6 +77,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [undoing, setUndoing] = useState(false);
   const [clearing, setClearing] = useState(false);
   const [replacePrompt, setReplacePrompt] = useState<ReplacePrompt | null>(null);
+  const confirm = useConfirm();
 
   useAppearance(settings?.appearance);
 
@@ -180,7 +173,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // A cold "Open With" launch can deliver photos before settings have loaded.
       const current = settingsRef.current ?? (await ipc.getSettings().catch(() => null));
       if (!mustConfirmReplace(current)) return true;
-      if (!current?.compactWindow) return askNatively(current, count);
+      if (!current?.compactWindow) {
+        const { ok, dontAsk } = await confirm({
+          title: t.session.confirmReplaceTitle,
+          body: t.session.confirmReplace(count, current?.keepBackups ?? true),
+          okLabel: t.session.confirmOk,
+          offerDontAsk: true,
+        });
+        if (ok && dontAsk) updateSettings({ warnBeforeReplace: false });
+        return ok;
+      }
       return new Promise<boolean>((resolve) => {
         setReplacePrompt({
           count,
@@ -193,7 +195,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         });
       });
     },
-    [updateSettings],
+    [updateSettings, confirm],
   );
 
   const launch = useCallback(async (paths: string[]): Promise<void> => {

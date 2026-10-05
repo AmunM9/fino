@@ -1,5 +1,5 @@
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
-import type { CSSProperties } from "react";
+import { useEffect, useRef, type CSSProperties } from "react";
 import { FolderSearch, Plus, SplitSquareHorizontal, Square, Undo2 } from "lucide-react";
 import { comparableResults } from "../../lib/compare";
 import { formatCount, formatPercent, savedFraction, sizeParts } from "../../lib/format";
@@ -114,9 +114,29 @@ function DoneStage() {
   );
 }
 
+/** Matches the `restored-*` animations in optimize.css. */
+const RESTORED_MS = 1800;
+
+/** After an undo: a quick stamp saying the originals are back, then the start screen. */
+function RestoredStamp() {
+  const { resetSession } = useApp();
+  // Latest callback through a ref, so a background refresh never restarts the timer.
+  const reset = useRef(resetSession);
+  reset.current = resetSession;
+  useEffect(() => {
+    const timer = window.setTimeout(() => reset.current(), RESTORED_MS);
+    return () => window.clearTimeout(timer);
+  }, []);
+  return (
+    <div className="drop-overlay drop-overlay--restored" role="status">
+      <span>{t.session.undone}</span>
+    </div>
+  );
+}
+
 export function OptimizeView() {
   const { session } = useApp();
   if (session.phase === "running") return <RunningStage />;
-  if (session.phase === "done") return <DoneStage />;
+  if (session.phase === "done") return session.summary?.undone ? <RestoredStamp /> : <DoneStage />;
   return <DropStage />;
 }

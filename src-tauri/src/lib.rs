@@ -2,6 +2,7 @@ mod appearance;
 mod backups;
 mod commands;
 mod model;
+mod origin;
 mod overview;
 mod session;
 mod store;

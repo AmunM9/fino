@@ -115,11 +115,26 @@ export interface Totals {
 }
 
 /** A session as History shows it: stored summary + what is on disk right now. */
+/** Where a session's photos came from (derived from their paths; the UI words it). */
+export type OriginLabel =
+  | { kind: "files"; first: string; more: number }
+  | { kind: "folder"; parent: string | null; name: string }
+  | { kind: "folders"; name: string; count: number }
+  | { kind: "scattered" };
+
+export type Origin = OriginLabel & {
+  /** The folder in full, home as `~` (null when there is no shared folder). */
+  path: string | null;
+  /** A photo still in place, or the folder: what "show in Finder" opens. */
+  reveal: string | null;
+};
+
 export interface SessionEntry extends SessionSummary {
   /** At least one photo still has its original and optimized file in place. */
   comparable: boolean;
   /** Space this session's undo backups take now (0 = none left). */
   backupBytes: number;
+  origin: Origin | null;
 }
 
 export interface History {
