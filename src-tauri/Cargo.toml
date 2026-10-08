@@ -1,6 +1,6 @@
 [package]
 name = "fino"
-version = "0.1.0"
+version = "0.2.0"
 description = "Fino — smaller photos that look exactly the same"
 authors = ["Manuel Torres"]
 edition = "2021"
@@ -29,7 +29,7 @@ tauri = { version = "2", features = ["protocol-asset"] }
 tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-fino-core = { version = "0.1.0", path = "../crates/fino-core" }
+fino-core = { version = "0.2.0", path = "../crates/fino-core" }
 rayon = "1.12"
 tauri-plugin-dialog = "2"
 rusqlite = { version = "0.40.2", features = ["bundled"] }
