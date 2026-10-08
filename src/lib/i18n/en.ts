@@ -192,7 +192,7 @@ export const en: Dictionary = {
     },
 
     about: {
-      title: "About",
+      close: "Close",
       version: (v: string) => `Version ${v}`,
       madeBy: "Made by",
     },

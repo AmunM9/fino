@@ -45,7 +45,7 @@
   background: none;
   transition: transform var(--duration-fast) ease;
 }
-/* The leaf leads to About: a small lift says it can be pressed. */
+/* The leaf opens About: a small lift says it can be pressed. */
 .rail__logo:hover {
   transform: rotate(-8deg) scale(1.06);
 }

@@ -1,0 +1,29 @@
+/* About: the confirm card's look, with the leaf on top. */
+.about .about__version {
+  font-size: var(--text-sm);
+  color: var(--color-text-3);
+}
+.about .about__credit {
+  margin-top: var(--space-2);
+  color: var(--color-text-2);
+}
+.about__credit a {
+  color: var(--color-text);
+  text-decoration: underline;
+  text-decoration-color: var(--color-line-strong);
+  text-underline-offset: 3px;
+  transition: text-decoration-color var(--duration-fast) ease;
+}
+.about__credit a:hover,
+.about__credit a:focus-visible {
+  text-decoration-color: var(--color-signal);
+}
+.about .about__copyright {
+  font-size: var(--text-xs);
+  color: var(--color-text-3);
+}
+.about__close {
+  justify-content: center;
+  width: 100%;
+  margin-top: var(--space-3);
+}

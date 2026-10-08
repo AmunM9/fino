@@ -1,7 +1,8 @@
 import { ChartNoAxesColumn, Images, SlidersHorizontal, type LucideIcon } from "lucide-react";
 import { t } from "../../lib/strings";
 import { useApp, type View } from "../../state/AppProvider";
-import { ABOUT_ID } from "../settings/About";
+import { useState } from "react";
+import { AboutDialog } from "./AboutDialog";
 import { LogoMark } from "./Logo";
 
 const ITEMS: ReadonlyArray<{ view: View; icon: LucideIcon; label: () => string }> = [
@@ -12,6 +13,7 @@ const ITEMS: ReadonlyArray<{ view: View; icon: LucideIcon; label: () => string }
 
 export function Rail() {
   const { view, setView, session } = useApp();
+  const [aboutOpen, setAboutOpen] = useState(false);
   return (
     <nav className="rail" aria-label={t.nav.label}>
       <button
@@ -19,14 +21,12 @@ export function Rail() {
         className="rail__logo"
         aria-label={t.nav.about}
         title={t.nav.about}
-        onClick={() => {
-          setView("settings");
-          // After Settings renders: bring About into view.
-          requestAnimationFrame(() => document.getElementById(ABOUT_ID)?.scrollIntoView({ behavior: "smooth" }));
-        }}
+        aria-haspopup="dialog"
+        onClick={() => setAboutOpen(true)}
       >
         <LogoMark />
       </button>
+      {aboutOpen && <AboutDialog onClose={() => setAboutOpen(false)} />}
       {ITEMS.map(({ view: v, icon: Icon, label }) => (
         <button
           key={v}

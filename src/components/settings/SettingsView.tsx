@@ -8,7 +8,6 @@ import { languageNames, strengthCopy, t } from "../../lib/strings";
 import type { Appearance, LanguageChoice, OutputMode, Strength } from "../../lib/types";
 import { useApp } from "../../state/AppProvider";
 import { Segmented, Toggle } from "../ui/controls";
-import { About } from "./About";
 import { SizeList } from "./SizeList";
 import "../history/history.css";
 import "./settings.css";
@@ -199,8 +198,6 @@ export function SettingsView() {
           </select>
         </Field>
       </div>
-
-      <About />
     </section>
   );
 }

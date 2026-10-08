@@ -192,7 +192,7 @@ const t = {
   },
 
   about: {
-    title: "Acerca de",
+    close: "Cerrar",
     version: (v: string) => `Versión ${v}`,
     madeBy: "Hecho por",
   },
