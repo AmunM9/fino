@@ -12,6 +12,7 @@ import "./about.css";
 export function AboutDialog({ onClose }: { onClose: () => void }) {
   const { notify } = useApp();
   const ref = useRef<HTMLDialogElement>(null);
+  const close = useRef<HTMLButtonElement>(null);
   const [version, setVersion] = useState<string | null>(null);
 
   useEffect(() => {
@@ -20,10 +21,12 @@ export function AboutDialog({ onClose }: { onClose: () => void }) {
       .catch(() => setVersion(null));
   }, []);
 
-  // showModal(): focus trap, inert background and Escape to close.
+  // showModal(): focus trap, inert background and Escape to close. It focuses the first
+  // focusable element — the studio link — so focus moves to Close, as in the other dialogs.
   useEffect(() => {
     const dialog = ref.current;
     if (dialog && !dialog.open) dialog.showModal();
+    close.current?.focus();
   }, []);
 
   // The studio's site has a page per language: English at the root, Spanish under /es.
@@ -57,7 +60,7 @@ export function AboutDialog({ onClose }: { onClose: () => void }) {
         </a>
       </p>
       <p className="about__copyright">{copyright}</p>
-      <button type="button" className="btn about__close" onClick={onClose} autoFocus>
+      <button ref={close} type="button" className="btn about__close" onClick={onClose}>
         {t.about.close}
       </button>
     </dialog>
