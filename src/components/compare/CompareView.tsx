@@ -164,7 +164,7 @@ export function CompareView() {
           onPointerUp={onPointerUp}
           onPointerCancel={onPointerUp}
           role="slider"
-          aria-label="División antes / después"
+          aria-label={t.compare.divider}
           aria-valuemin={0}
           aria-valuemax={100}
           aria-valuenow={Math.round(split * 100)}

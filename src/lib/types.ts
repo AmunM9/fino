@@ -17,6 +17,9 @@ export type OutputMode = "replace" | "export";
 /** "system" follows the OS live. */
 export type Appearance = "system" | "light" | "dark";
 
+/** "system" follows the OS language: Spanish if it is Spanish, English otherwise. */
+export type LanguageChoice = "system" | "en" | "es";
+
 export interface Settings {
   outputMode: OutputMode;
   warnBeforeReplace: boolean;
@@ -29,6 +32,7 @@ export interface Settings {
   stripLocation: boolean;
   skipOptimized: boolean;
   appearance: Appearance;
+  language: LanguageChoice;
   /** The compact "mini" window instead of the full one. */
   compactWindow: boolean;
   /** HEIC photos become Compact JPEGs for sharing (no HDR/depth/portrait data). Off by default. */

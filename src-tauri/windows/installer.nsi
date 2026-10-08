@@ -1,6 +1,7 @@
 ; Tauri's NSIS installer template (tauri-bundler 2.10.1, src/bundle/windows/nsis/installer.nsi)
-; with one change, marked "FINO": the per-user install folder. When upgrading Tauri, copy the
-; new version of that file here and re-apply the change.
+; with changes marked "FINO": the per-user install folder, and finding a 0.1.0 install, which
+; was registered under the default publisher. When upgrading Tauri, copy the new version of that
+; file here and re-apply the changes.
 
 Unicode true
 ManifestDPIAware true
@@ -71,6 +72,8 @@ ${StrLoc}
 !define UNINSTKEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCTNAME}"
 !define MANUKEY "Software\${MANUFACTURER}"
 !define MANUPRODUCTKEY "${MANUKEY}\${PRODUCTNAME}"
+; FINO: where 0.1.0 (no publisher set, so "fino") recorded its install folder.
+!define FINO_LEGACY_PRODUCTKEY "Software\fino\${PRODUCTNAME}"
 !define UNINSTALLERSIGNCOMMAND "{{uninstaller_sign_cmd}}"
 !define ESTIMATEDSIZE "{{estimated_size}}"
 !define STARTMENUFOLDER "{{start_menu_folder}}"
@@ -358,6 +361,7 @@ Function PageLeaveReinstall
       ExecWait '$R1' $0
     ${Else}
       ReadRegStr $4 SHCTX "${MANUPRODUCTKEY}" ""
+      ${IfThen} $4 == "" ${|} ReadRegStr $4 SHCTX "${FINO_LEGACY_PRODUCTKEY}" "" ${|} ; FINO
       ReadRegStr $R1 SHCTX "${UNINSTKEY}" "UninstallString"
       ${IfThen} $UpdateMode = 1 ${|} StrCpy $R1 "$R1 /UPDATE" ${|} ; append /UPDATE
       ${IfThen} $PassiveMode = 1 ${|} StrCpy $R1 "$R1 /P" ${|} ; append /P
@@ -903,6 +907,7 @@ SectionEnd
 
 Function RestorePreviousInstallLocation
   ReadRegStr $4 SHCTX "${MANUPRODUCTKEY}" ""
+  ${IfThen} $4 == "" ${|} ReadRegStr $4 SHCTX "${FINO_LEGACY_PRODUCTKEY}" "" ${|} ; FINO
   StrCmp $4 "" +2 0
     StrCpy $INSTDIR $4
 FunctionEnd

@@ -9,6 +9,8 @@
  */
 import { emit } from "@tauri-apps/api/event";
 import { mockIPC, mockWindows } from "@tauri-apps/api/mocks";
+import type { Language } from "../lib/strings";
+import { t } from "../lib/strings";
 import type { FileResult, History, SessionEntry, SessionSummary, Settings } from "../lib/types";
 import { DEMO_DONE_AT_START, DEMO_TOTAL, demoResult } from "./demoBatch";
 
@@ -129,13 +131,16 @@ let settings: Settings = {
   stripLocation: false,
   skipOptimized: true,
   appearance: "system",
+  language: "system",
   compactWindow: false,
   heicToJpeg: false,
 };
 
 /** Clicks a button by its accessible name once the UI has rendered it. */
-function clickLater(name: string, delay: number): void {
+/** `name` is read when the click happens, in whatever language the UI is in by then. */
+function clickLater(label: () => string, delay: number): void {
   setTimeout(() => {
+    const name = label();
     const buttons = [...document.querySelectorAll<HTMLButtonElement>("button")];
     buttons.find((b) => b.getAttribute("aria-label") === name || b.textContent?.trim() === name)?.click();
   }, delay);
@@ -166,6 +171,9 @@ export function installMocks(): void {
   const demo = params.has("demo");
   const results = demo ? Array.from({ length: DEMO_TOTAL }, (_, i) => demoResult(i)) : sampleResults;
   if (theme === "light" || theme === "dark") settings = { ...settings, appearance: theme };
+  // `?lang=en` previews the UI as if the OS were in English.
+  const lang = params.get("lang");
+  const systemLanguage: Language = lang === "en" || lang === "es" ? lang : navigator.language.startsWith("es") ? "es" : "en";
   if (params.get("window") === "mini") settings = { ...settings, compactWindow: true };
   if (params.get("ask") === "0") settings = { ...settings, warnBeforeReplace: false };
   mockWindows("main");
@@ -173,6 +181,12 @@ export function installMocks(): void {
     switch (cmd) {
       case "get_settings":
         return settings;
+      case "plugin:app|version":
+        return "0.1.0";
+      case "plugin:opener|open_url":
+        return null;
+      case "ui_language":
+        return settings.language === "system" ? systemLanguage : settings.language;
       case "save_settings":
         settings = (payload as { settings: Settings }).settings;
         return settings;
@@ -220,7 +234,7 @@ export function installMocks(): void {
     pendingOpen = results.map((r) => r.path);
     setTimeout(() => void emit("open-paths"), 600);
   }
-  if (view === "history") clickLater("Historial", 300);
-  if (view === "settings") clickLater("Ajustes", 300);
-  if (view === "compare") clickLater("Comparar", 1500);
+  if (view === "history") clickLater(() => t.nav.history, 300);
+  if (view === "settings") clickLater(() => t.nav.settings, 300);
+  if (view === "compare") clickLater(() => t.session.compare, 1500);
 }

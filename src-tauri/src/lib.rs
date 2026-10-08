@@ -1,6 +1,9 @@
 mod appearance;
 mod backups;
 mod commands;
+mod locale;
+#[cfg(target_os = "macos")]
+mod menu;
 mod model;
 mod origin;
 mod overview;
@@ -71,6 +74,8 @@ pub fn run() {
                 eprintln!("fino: could not recover interrupted sessions: {e}");
             }
             let settings = store.settings();
+            #[cfg(target_os = "macos")]
+            menu::apply(app.handle(), locale::resolve(settings.language));
             let window_size = window_mode::Remembered::default();
             if let Some(window) = app.get_webview_window("main") {
                 appearance::apply(&window, settings.appearance);
@@ -93,6 +98,19 @@ pub fn run() {
             });
             Ok(())
         })
+        .on_menu_event(|app, event| {
+            #[cfg(target_os = "macos")]
+            if event.id() == menu::OPEN_SETTINGS {
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.unminimize();
+                    let _ = window.show();
+                    let _ = window.set_focus();
+                }
+                let _ = app.emit(menu::OPEN_SETTINGS, ());
+            }
+            #[cfg(not(target_os = "macos"))]
+            let _ = (app, event);
+        })
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::ThemeChanged(_) = event {
                 if let Some(webview) = window.app_handle().get_webview_window(window.label()) {
@@ -103,6 +121,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::get_settings,
             commands::save_settings,
+            commands::ui_language,
             commands::get_history,
             commands::session_results,
             commands::optimize,

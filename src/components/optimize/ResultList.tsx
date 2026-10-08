@@ -10,9 +10,9 @@ interface Props {
 }
 
 function StatusIcon({ result }: { result: FileResult }) {
-  if (result.status === "done") return <Check className="row__icon row__icon--done" aria-label="Optimizada" />;
-  if (result.status === "failed") return <AlertTriangle className="row__icon row__icon--failed" aria-label="Error" />;
-  return <Minus className="row__icon" aria-label="Omitida" />;
+  if (result.status === "done") return <Check className="row__icon row__icon--done" aria-label={t.results.done} />;
+  if (result.status === "failed") return <AlertTriangle className="row__icon row__icon--failed" aria-label={t.results.failed} />;
+  return <Minus className="row__icon" aria-label={t.results.skipped} />;
 }
 
 function Detail({ result }: { result: FileResult }) {
@@ -42,7 +42,7 @@ function ConversionBadge({ result }: { result: FileResult }) {
 export function ResultList({ results, onOpen }: Props) {
   const ordered = [...results].sort((a, b) => a.id - b.id);
   return (
-    <ul className="results" aria-label="Resultados">
+    <ul className="results" aria-label={t.results.label}>
       {ordered.map((r) => {
         const canCompare = isComparable(r);
         const saved = savedFraction(r.originalBytes, r.outputBytes);

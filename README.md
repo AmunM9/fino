@@ -44,6 +44,7 @@ misma resolución · mismos metadatos · SSIMULACRA 2 ≈ 85
 | **Comparar** | Vista antes/después con divisor deslizable y **lupa al 100 %** que sigue al cursor. Solo se ofrece si el original y la versión optimizada siguen donde estaban. |
 | **Historial** | Ahorro total, sesiones sin límite (base de datos SQLite local), deshacer y exportación del log a CSV con el motivo de cada archivo omitido. |
 | **Tema claro y oscuro** | Sigue al sistema o se fija desde Ajustes; también la barra de título y los diálogos. |
+| **Español e inglés** | Sigue el idioma del sistema (inglés si no es español). En macOS también se elige por app en Ajustes del Sistema → General → Idioma y región; en ambos sistemas, desde Ajustes de Fino. |
 | **Privacidad** | Opción para quitar la ubicación GPS de EXIF y XMP; el resto de metadatos no se toca. |
 | **Respeta tu archivo** | Conserva byte a byte EXIF, XMP, IPTC y perfiles ICC, además de fechas de creación y modificación, permisos y, en macOS, etiquetas de Finder. Escribe de forma atómica. |
 | **Sin pérdida cuando conviene** | Si recomprimir no compensa (fotos ya comprimidas), reescribe solo la codificación: −3 a −7 % con píxeles **idénticos**. |
@@ -153,3 +154,7 @@ cargo run --release -p fino-core --example calibrate -- carpeta/con/jpegs
 ## Licencias de terceros
 
 mozjpeg (IJG/BSD), zune-jpeg (MIT/Apache-2.0/Zlib), zensim (MIT/Apache-2.0), fast_image_resize (MIT/Apache-2.0) y Tauri (MIT/Apache-2.0). Fuentes: Bricolage Grotesque y Geist (SIL OFL 1.1). La foto del comparador es de la Kodak Lossless True Color Image Suite; las demás, del autor.
+
+---
+
+Fino es un producto de [The Shipping Labs](https://theshippinglabs.com/es) · © 2026 The Shipping Labs

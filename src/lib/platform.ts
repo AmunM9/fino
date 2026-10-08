@@ -26,9 +26,3 @@ export const platform: Platform = isPlatform(previewAs)
 
 /** HEIC → JPEG needs the system's HEIC decoder, which only macOS provides (see fino-core). */
 export const heicConversionAvailable = platform === "macos";
-
-/** What the system file manager is called, for "show in …". */
-export const fileManager = platform === "windows" ? "el Explorador" : platform === "macos" ? "Finder" : "la carpeta";
-
-/** How the computer is referred to in copy. */
-export const thisComputer = platform === "macos" ? "este Mac" : "este equipo";

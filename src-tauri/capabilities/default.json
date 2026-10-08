@@ -9,6 +9,14 @@
     "core:default",
     "core:window:allow-start-dragging",
     "opener:allow-reveal-item-in-dir",
+    {
+      "identifier": "opener:allow-open-url",
+      "allow": [
+        {
+          "url": "https://theshippinglabs.com/*"
+        }
+      ]
+    },
     "dialog:allow-open",
     "dialog:allow-save",
     "dialog:allow-ask",

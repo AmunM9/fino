@@ -46,6 +46,7 @@ same resolution · same metadata · SSIMULACRA 2 ≈ 85
 | **Compare** | Before/after view with a draggable divider and a **100% loupe** that follows the cursor. Only offered while both the original and the optimized file are still in place. |
 | **History** | Total savings, unlimited sessions (local SQLite database), undo, and a CSV log with the reason each file was skipped. |
 | **Light and dark** | Follows the system or is fixed from Settings — title bar and dialogs included. |
+| **English and Spanish** | Follows the system language (English unless it is Spanish). On macOS it can also be set per app in System Settings → General → Language & Region; on both systems, in Fino's Settings. |
 | **Privacy** | Optionally strips GPS location from EXIF and XMP; all other metadata stays. |
 | **Respects your files** | Keeps EXIF, XMP, IPTC and ICC profiles byte for byte, plus creation/modification dates, permissions and, on macOS, Finder tags. Writes atomically. |
 | **Lossless when it pays** | When recompressing isn't worth it (already-compressed photos), it rewrites only the entropy coding: −3 to −7% with **identical** pixels. |
@@ -155,3 +156,7 @@ cargo run --release -p fino-core --example calibrate -- folder/with/jpegs
 ## Third-party licenses
 
 mozjpeg (IJG/BSD), zune-jpeg (MIT/Apache-2.0/Zlib), zensim (MIT/Apache-2.0), fast_image_resize (MIT/Apache-2.0) and Tauri (MIT/Apache-2.0). Fonts: Bricolage Grotesque and Geist (SIL OFL 1.1). The comparison photo comes from the Kodak Lossless True Color Image Suite; the others are the author's.
+
+---
+
+Fino is made by [The Shipping Labs](https://theshippinglabs.com) · © 2026 The Shipping Labs

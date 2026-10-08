@@ -198,7 +198,7 @@ export function HistoryView() {
                 <th>{t.history.origin}</th>
                 <th>{t.history.saved}</th>
                 <th />
-                <th aria-label="Acciones" />
+                <th aria-label={t.history.actions} />
               </tr>
             </thead>
             <tbody>

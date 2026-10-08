@@ -68,11 +68,17 @@ function Shell() {
   );
 }
 
+/** Remounts the UI when the language changes; sessions, settings and the open view live above it. */
+function LocalizedShell() {
+  const { language } = useApp();
+  return <Shell key={language} />;
+}
+
 export default function App() {
   return (
     <ConfirmProvider>
       <AppProvider>
-        <Shell />
+        <LocalizedShell />
       </AppProvider>
     </ConfirmProvider>
   );

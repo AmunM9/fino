@@ -8,16 +8,20 @@ const MAX_PIXELS = 30000;
 
 type ModeValue = ResizeMode | "original";
 
-const MODE_OPTIONS: ReadonlyArray<{ value: ModeValue; label: string }> = [
+const modeOptions = (): ReadonlyArray<{ value: ModeValue; label: string }> => [
   { value: "original", label: t.settings.originalSize },
   { value: "longEdge", label: t.settings.longEdge },
   { value: "maxWidth", label: t.settings.maxWidth },
   { value: "maxHeight", label: t.settings.maxHeight },
 ];
 
+/**
+ * Saved with the size and used as its export folder's name, so it keeps the language it was
+ * created in: switching languages must not split one size's exports across two folders.
+ */
 function labelFor(mode: ResizeMode | null, pixels: number | null): string {
   if (!mode || !pixels) return "Original";
-  const prefix = mode === "maxWidth" ? "Ancho " : mode === "maxHeight" ? "Alto " : "";
+  const prefix = mode === "maxWidth" ? `${t.settings.widthFolder} ` : mode === "maxHeight" ? `${t.settings.heightFolder} ` : "";
   return `${prefix}${pixels} px`;
 }
 
@@ -51,7 +55,7 @@ export function SizeList({ sizes, onChange }: Props) {
               else update(index, value, size.pixels ?? 2048);
             }}
           >
-            {MODE_OPTIONS.map((o) => (
+            {modeOptions().map((o) => (
               <option key={o.value} value={o.value}>
                 {o.label}
               </option>

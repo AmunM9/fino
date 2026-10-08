@@ -1,9 +1,12 @@
 import { Channel, convertFileSrc, invoke } from "@tauri-apps/api/core";
+import type { Language } from "./strings";
 import type { FileResult, History, SessionEvent, SessionSummary, Settings } from "./types";
 
 export const ipc = {
   getSettings: () => invoke<Settings>("get_settings"),
   saveSettings: (settings: Settings) => invoke<Settings>("save_settings", { settings }),
+  /** The language to show: the saved choice, or the OS language when it is "system". */
+  uiLanguage: () => invoke<Language>("ui_language"),
   /** `limit` = how many sessions (newest first) the History list shows. */
   getHistory: (limit: number) => invoke<History>("get_history", { limit }),
   sessionResults: (id: string) => invoke<FileResult[]>("session_results", { id }),

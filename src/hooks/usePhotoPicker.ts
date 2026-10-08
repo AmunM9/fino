@@ -2,6 +2,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { useCallback } from "react";
 import { errorMessage } from "../lib/ipc";
 import { heicConversionAvailable } from "../lib/platform";
+import { t } from "../lib/strings";
 import { useApp } from "../state/AppProvider";
 
 const PHOTO_EXTENSIONS = ["jpg", "jpeg", "jpe", "jfif"];
@@ -24,7 +25,7 @@ export function usePhotoPicker(): (directory: boolean) => Promise<void> {
         const selection = await open({
           multiple: true,
           directory,
-          filters: directory ? undefined : [{ name: "Fotos", extensions }],
+          filters: directory ? undefined : [{ name: t.drop.photosFilter, extensions }],
         });
         start(asList(selection));
       } catch (e) {

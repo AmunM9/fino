@@ -1,8 +1,9 @@
+import { listen } from "@tauri-apps/api/event";
 import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from "react";
 import { useConfirm } from "../components/ui/ConfirmDialog";
 import { useAppearance } from "../hooks/useAppearance";
 import { errorMessage, ipc } from "../lib/ipc";
-import { t } from "../lib/strings";
+import { language as startupLanguage, setLanguage, t, type Language } from "../lib/strings";
 import type { FileResult, History, Settings } from "../lib/types";
 import { initialSession, sessionReducer, type SessionState } from "./session";
 
@@ -19,6 +20,8 @@ export interface CompareTarget {
 interface AppContextValue {
   view: View;
   setView: (view: View) => void;
+  /** The language on screen; changing it in Settings re-renders the UI in place. */
+  language: Language;
   settings: Settings | null;
   updateSettings: (patch: Partial<Settings>) => void;
   history: History | null;
@@ -77,6 +80,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [undoing, setUndoing] = useState(false);
   const [clearing, setClearing] = useState(false);
   const [replacePrompt, setReplacePrompt] = useState<ReplacePrompt | null>(null);
+  const [language, setLanguageState] = useState<Language>(startupLanguage);
   const confirm = useConfirm();
 
   useAppearance(settings?.appearance);
@@ -153,10 +157,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setSettings(next);
     saveChain.current = saveChain.current
       .then(() => ipc.saveSettings(next))
-      .then((saved) => {
+      .then(async (saved) => {
         if (settingsRef.current === next) {
           settingsRef.current = saved;
           setSettings(saved);
+        }
+        // "System" is resolved by the backend, which knows the OS's preferred languages.
+        if (saved.language !== current.language) {
+          const shown = await ipc.uiLanguage();
+          setLanguage(shown);
+          setLanguageState(shown);
+          setNotice(null); // written in the previous language
         }
       })
       .catch(async (e) => {
@@ -274,10 +285,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
   );
   const freeBackups = useCallback(() => clearBackups(() => ipc.freeBackups(historyLimit.current)), [clearBackups]);
 
+  // macOS menu bar: Fino → Settings… (⌘,). The mini window has no Settings view, so it expands.
+  useEffect(() => {
+    const unlisten = listen("open-settings", () => {
+      if (settingsRef.current?.compactWindow) updateSettings({ compactWindow: false });
+      setView("settings");
+    });
+    return () => {
+      unlisten.then((stop) => stop()).catch(() => undefined);
+    };
+  }, [updateSettings]);
+
   const value = useMemo<AppContextValue>(
     () => ({
       view,
       setView,
+      language,
       settings,
       updateSettings,
       history,
@@ -302,6 +325,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }),
     [
       view,
+      language,
       settings,
       updateSettings,
       history,

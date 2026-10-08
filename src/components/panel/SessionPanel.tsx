@@ -13,7 +13,7 @@ export function SessionPanel() {
   const allTime = sizeParts(totals?.savedBytes ?? 0);
 
   return (
-    <aside className="panel" aria-label="Resumen de la sesión">
+    <aside className="panel" aria-label={t.panel.label}>
       <SavingsGauge
         savedBytes={live.savedBytes}
         progress={batchProgress(live.processed, session.total)}

@@ -257,3 +257,54 @@ select,
   font-size: var(--text-sm);
   color: var(--color-text-2);
 }
+
+/* About: the last thing in Settings, reached also from the rail's leaf. */
+.about {
+  scroll-margin-top: var(--space-6);
+}
+.about__card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-line);
+  background: var(--color-panel);
+}
+.about__text {
+  display: grid;
+  gap: 2px;
+}
+.about__text p {
+  margin: 0;
+}
+.about__name {
+  font-size: var(--text-md);
+  font-weight: 650;
+  color: var(--color-text);
+}
+.about__version {
+  margin-left: var(--space-2);
+  font-size: var(--text-sm);
+  font-weight: 400;
+  color: var(--color-text-3);
+}
+.about__credit {
+  font-size: var(--text-sm);
+  color: var(--color-text-2);
+}
+.about__credit a {
+  color: var(--color-text);
+  text-decoration: underline;
+  text-decoration-color: var(--color-line-strong);
+  text-underline-offset: 3px;
+  transition: text-decoration-color var(--duration-fast) ease;
+}
+.about__credit a:hover,
+.about__credit a:focus-visible {
+  text-decoration-color: var(--color-signal);
+}
+.about__copyright {
+  font-size: var(--text-xs);
+  color: var(--color-text-3);
+}

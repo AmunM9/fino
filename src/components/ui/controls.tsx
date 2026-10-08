@@ -1,5 +1,6 @@
 import { AlertCircle, X } from "lucide-react";
 import type { ReactNode } from "react";
+import { t } from "../../lib/strings";
 
 interface ToggleProps {
   checked: boolean;
@@ -56,7 +57,7 @@ export function Notice({ message, onClose }: { message: string; onClose: () => v
     <div className="notice" role="alert">
       <AlertCircle className="notice__icon" aria-hidden />
       <p>{message}</p>
-      <button type="button" className="icon-btn" aria-label="Cerrar" onClick={onClose}>
+      <button type="button" className="icon-btn" aria-label={t.dismiss} onClick={onClose}>
         <X />
       </button>
     </div>

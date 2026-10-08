@@ -88,6 +88,12 @@ pub fn get_settings(state: State<AppState>) -> Settings {
     state.store.settings()
 }
 
+/// The language the UI shows: the saved choice, or the system's when it is "System".
+#[tauri::command]
+pub fn ui_language(state: State<AppState>) -> crate::locale::Language {
+    crate::locale::resolve(state.store.settings().language)
+}
+
 #[tauri::command]
 pub fn save_settings(
     app: AppHandle,
@@ -104,6 +110,10 @@ pub fn save_settings(
     let settings = settings.sanitized();
     let previous = state.store.settings();
     state.store.save_settings(&settings)?;
+    #[cfg(target_os = "macos")]
+    if previous.language != settings.language {
+        crate::menu::apply(&app, crate::locale::resolve(settings.language));
+    }
     if let Some(window) = app.get_webview_window("main") {
         crate::appearance::apply(&window, settings.appearance);
         if previous.compact_window != settings.compact_window {

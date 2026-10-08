@@ -4,22 +4,25 @@ import { FolderOutput, Monitor, Moon, RefreshCw, Sun, Trash2 } from "lucide-reac
 import type { ReactNode } from "react";
 import { formatBytes, prettyPath } from "../../lib/format";
 import { errorMessage } from "../../lib/ipc";
-import { strengthCopy, t } from "../../lib/strings";
-import type { Appearance, OutputMode, Strength } from "../../lib/types";
+import { languageNames, strengthCopy, t } from "../../lib/strings";
+import type { Appearance, LanguageChoice, OutputMode, Strength } from "../../lib/types";
 import { useApp } from "../../state/AppProvider";
 import { Segmented, Toggle } from "../ui/controls";
+import { About } from "./About";
 import { SizeList } from "./SizeList";
 import "../history/history.css";
 import "./settings.css";
 import { heicConversionAvailable } from "../../lib/platform";
 
 const RETENTION_OPTIONS = [1, 7, 30] as const;
+const LANGUAGES: LanguageChoice[] = ["system", "en", "es"];
 const STRENGTHS: Strength[] = ["pristine", "identical", "compact"];
-const THEME_OPTIONS = [
-  { value: "system", label: <Monitor aria-hidden />, title: t.settings.themes.system },
-  { value: "light", label: <Sun aria-hidden />, title: t.settings.themes.light },
-  { value: "dark", label: <Moon aria-hidden />, title: t.settings.themes.dark },
-] as const satisfies ReadonlyArray<{ value: Appearance; label: ReactNode; title: string }>;
+const themeOptions = () =>
+  [
+    { value: "system", label: <Monitor aria-hidden />, title: t.settings.themes.system },
+    { value: "light", label: <Sun aria-hidden />, title: t.settings.themes.light },
+    { value: "dark", label: <Moon aria-hidden />, title: t.settings.themes.dark },
+  ] as const satisfies ReadonlyArray<{ value: Appearance; label: ReactNode; title: string }>;
 
 function Field({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {
   return (
@@ -86,7 +89,7 @@ export function SettingsView() {
         <Segmented
           label={t.settings.theme}
           value={settings.appearance}
-          options={THEME_OPTIONS}
+          options={themeOptions()}
           onChange={(appearance) => updateSettings({ appearance })}
           iconOnly
         />
@@ -179,6 +182,25 @@ export function SettingsView() {
           </Field>
         )}
       </div>
+
+      <h2 className="section-title">{t.settings.general}</h2>
+      <div className="group">
+        <Field title={t.settings.language} hint={t.settings.languageHint}>
+          <select
+            aria-label={t.settings.language}
+            value={settings.language}
+            onChange={(e) => updateSettings({ language: e.target.value as LanguageChoice })}
+          >
+            {LANGUAGES.map((choice) => (
+              <option key={choice} value={choice} lang={choice === "system" ? undefined : choice}>
+                {choice === "system" ? t.settings.systemLanguage : languageNames[choice]}
+              </option>
+            ))}
+          </select>
+        </Field>
+      </div>
+
+      <About />
     </section>
   );
 }

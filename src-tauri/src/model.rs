@@ -22,6 +22,16 @@ pub enum Appearance {
     Dark,
 }
 
+/// The UI language the person picked. `System` follows the OS (see `locale.rs`).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum LanguageChoice {
+    #[default]
+    System,
+    En,
+    Es,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SizePreset {
@@ -64,6 +74,7 @@ pub struct Settings {
     pub strip_location: bool,
     pub skip_optimized: bool,
     pub appearance: Appearance,
+    pub language: LanguageChoice,
     /// The compact "mini" window instead of the full one.
     pub compact_window: bool,
     /// HEIC photos become Compact JPEGs for sharing (no HDR, depth or portrait data); the
@@ -85,6 +96,7 @@ impl Default for Settings {
             strip_location: false,
             skip_optimized: true,
             appearance: Appearance::System,
+            language: LanguageChoice::System,
             compact_window: false,
             heic_to_jpeg: false,
         }

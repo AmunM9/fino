@@ -39,6 +39,26 @@
   width: 40px;
   height: 40px;
   margin-bottom: var(--space-5);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: none;
+  transition: transform var(--duration-fast) ease;
+}
+/* The leaf leads to About: a small lift says it can be pressed. */
+.rail__logo:hover {
+  transform: rotate(-8deg) scale(1.06);
+}
+.rail__logo:active {
+  transform: scale(0.96);
+}
+@media (prefers-reduced-motion: reduce) {
+  .rail__logo,
+  .rail__logo:hover,
+  .rail__logo:active {
+    transform: none;
+    transition: none;
+  }
 }
 
 .rail__item {
