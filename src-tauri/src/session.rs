@@ -580,6 +580,7 @@ mod tests {
         std::fs::read(path).unwrap()
     }
 
+    #[cfg(target_os = "macos")]
     #[test]
     fn by_default_heic_photos_are_left_untouched() {
         let dir = tempfile::tempdir().unwrap();
@@ -604,6 +605,30 @@ mod tests {
             .find(|r| r.name == "IMG_0003.HEIC")
             .unwrap();
         assert_eq!(skipped.skip_reason, Some(SkipReason::ConversionOff));
+    }
+
+    /// Without a system HEIC decoder (Windows), folders don't pick HEIC photos up at all.
+    #[cfg(not(target_os = "macos"))]
+    #[test]
+    fn without_a_heic_decoder_folders_skip_heic_photos() {
+        let dir = tempfile::tempdir().unwrap();
+        let photos = dir.path().join("photos");
+        std::fs::create_dir_all(&photos).unwrap();
+        write_camera_jpeg(&photos.join("a.jpg"));
+        write_camera_jpeg(&photos.join("b.jpg"));
+        let heic = photos.join("IMG_0003.HEIC");
+        let bytes = std::fs::read(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../crates/fino-core/tests/fixtures/rotated.heic"
+        ))
+        .unwrap();
+        std::fs::write(&heic, &bytes).unwrap();
+
+        let record = run_in(dir.path(), Settings::default());
+
+        assert_eq!(std::fs::read(&heic).unwrap(), bytes, "HEIC untouched");
+        assert!(!photos.join("IMG_0003.JPG").exists());
+        assert!(record.results.iter().all(|r| r.name != "IMG_0003.HEIC"));
     }
 
     #[cfg(target_os = "macos")]
