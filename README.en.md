@@ -6,6 +6,8 @@
 
 English · [Español](README.md)
 
+[![CI](https://github.com/AmunM9/fino/actions/workflows/ci.yml/badge.svg)](https://github.com/AmunM9/fino/actions/workflows/ci.yml)
+
 Fino is a macOS and Windows app that recompresses JPEGs *perceptually*. It tries smaller and smaller versions of each photo, compares every candidate with the original region by region, and keeps the smallest one that shows no visible artifact. Built from open components, running offline on your computer.
 
 ```
@@ -49,8 +51,16 @@ same resolution · same metadata · SSIMULACRA 2 ≈ 85
 | **Lossless when it pays** | When recompressing isn't worth it (already-compressed photos), it rewrites only the entropy coding: −3 to −7% with **identical** pixels. |
 | **Never worse** | If it can't save at least 3%, the file is left as is. Photos Fino already processed and HDR photos with a gain map are skipped. |
 | **Open with Fino** | macOS: drop photos or folders on the Dock icon, or use "Open With → Fino". Windows: "Open with → Fino" in Explorer; if Fino is already open, the photos go to that window. |
-| **Apple Silicon, Intel and Windows** | Universal binary on macOS; a Windows 10/11 (x64) installer that needs no admin rights. |
+| **Apple Silicon, Intel and Windows** | Universal binary on macOS; on Windows 10/11 (x64) it installs per user into `%LOCALAPPDATA%\Programs\Fino`, no admin rights needed. |
 | **CLI** | `fino` runs the same engine from the terminal. |
+
+## Install
+
+- **macOS**: open the `.dmg` and drag Fino to Applications.
+- **Windows**: run the `Fino_x.y.z_x64-setup.exe` installer.
+
+The installers are not yet signed by Apple or with a Windows certificate, so each system warns the first time:
+on macOS, open System Settings → Privacy & Security → "Open Anyway"; on Windows, under "Windows protected your PC" click "More info" → "Run anyway".
 
 ## How the engine works
 

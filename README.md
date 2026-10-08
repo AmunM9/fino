@@ -6,6 +6,8 @@
 
 [English](README.en.md) · Español
 
+[![CI](https://github.com/AmunM9/fino/actions/workflows/ci.yml/badge.svg)](https://github.com/AmunM9/fino/actions/workflows/ci.yml)
+
 Fino es una app para macOS y Windows que recomprime JPEG con un criterio *perceptual*. Prueba versiones cada vez más pequeñas de cada foto, compara cada candidata con el original zona por zona y se queda con la más pequeña en la que no aparece ningún artefacto visible. Todo con piezas abiertas, en tu equipo y sin conexión.
 
 ```
@@ -47,8 +49,16 @@ misma resolución · mismos metadatos · SSIMULACRA 2 ≈ 85
 | **Sin pérdida cuando conviene** | Si recomprimir no compensa (fotos ya comprimidas), reescribe solo la codificación: −3 a −7 % con píxeles **idénticos**. |
 | **Nunca empeora** | Si no ahorra al menos un 3 %, deja el archivo como estaba. También salta las fotos que ya pasaron por Fino y los HDR con *gain map*. |
 | **Abrir con Fino** | macOS: arrastra fotos o carpetas al icono del Dock o usa «Abrir con → Fino». Windows: «Abrir con → Fino» en el Explorador; si Fino ya está abierto, las fotos llegan a esa ventana. |
-| **Apple Silicon, Intel y Windows** | Binario universal en macOS; instalador para Windows 10/11 (x64) sin permisos de administrador. |
+| **Apple Silicon, Intel y Windows** | Binario universal en macOS; en Windows 10/11 (x64) se instala por usuario en `%LOCALAPPDATA%\Programs\Fino`, sin permisos de administrador. |
 | **CLI** | `fino` usa el mismo motor desde la terminal. |
+
+## Instalar
+
+- **macOS**: abre el `.dmg` y arrastra Fino a Aplicaciones.
+- **Windows**: ejecuta el instalador `Fino_x.y.z_x64-setup.exe`.
+
+Los instaladores todavía no llevan firma de Apple ni certificado de Windows, así que la primera vez cada sistema avisa:
+en macOS, abre Ajustes del Sistema → Privacidad y seguridad → «Abrir igualmente»; en Windows, en «Windows protegió su PC» pulsa «Más información» → «Ejecutar de todas formas».
 
 ## Cómo funciona el motor
 
