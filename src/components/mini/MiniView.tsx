@@ -5,7 +5,7 @@ import { formatCount, formatPercent, savedFraction } from "../../lib/format";
 import { fileUrl } from "../../lib/ipc";
 import { t } from "../../lib/strings";
 import { useApp, type ReplacePrompt } from "../../state/AppProvider";
-import { liveStats } from "../../state/session";
+import { batchProgress, liveStats } from "../../state/session";
 import { SavingsGauge } from "../panel/SavingsGauge";
 import "./mini.css";
 
@@ -64,7 +64,7 @@ function DoneSummary({ ready, fraction, converted, skipped }: { ready: number; f
   );
 }
 
-/** The compact droplet window: drop photos on it and watch the savings dial fill. */
+/** The compact droplet window: drop photos on it and watch the dial fill as they finish. */
 export function MiniView({ isOver }: { isOver: boolean }) {
   const { session, cancel, updateSettings, replacePrompt } = useApp();
   const pick = usePhotoPicker();
@@ -105,7 +105,7 @@ export function MiniView({ isOver }: { isOver: boolean }) {
       <div className="mini__dial" data-tauri-drag-region>
         <SavingsGauge
           savedBytes={stats.savedBytes}
-          fraction={fraction}
+          progress={batchProgress(stats.processed, session.total)}
           active={session.phase !== "idle"}
           badge={done && stats.savedBytes > 0 ? <CircleCheck aria-hidden /> : null}
         />

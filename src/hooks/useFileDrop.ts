@@ -40,20 +40,25 @@ export function useFileDrop(onPaths: (paths: string[]) => void): boolean {
     // The system hands paths to the backend, which buffers them until we ask — so a cold
     // "Open With" launch can't fire before this listener exists.
     let gathering: ReturnType<typeof setTimeout> | undefined;
-    const take = () =>
+    // Taking empties the backend's buffer, so it never happens after unmounting — and paths
+    // once taken are always handed on.
+    const take = () => {
+      if (disposed) return;
       ipc
         .takeOpenedPaths()
-        .then((paths) => !disposed && paths.length > 0 && handler.current(paths))
+        .then((paths) => paths.length > 0 && handler.current(paths))
         .catch(() => undefined);
+    };
     const drainOpened = () => {
       clearTimeout(gathering);
-      gathering = setTimeout(() => void take(), GATHER_MS);
+      gathering = setTimeout(take, GATHER_MS);
     };
     // Drain once the listener exists too: paths that arrived while it was being registered
     // would otherwise wait for the next one.
     listen("open-paths", drainOpened)
       .then((unlisten) => {
-        keep(unlisten);
+        if (disposed) return unlisten();
+        unlisteners.push(unlisten);
         drainOpened();
       })
       .catch(() => undefined);

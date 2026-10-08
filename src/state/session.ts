@@ -68,6 +68,11 @@ export interface LiveStats {
   savedBytes: number;
 }
 
+/** Share of the batch handled so far, 0–1: what the dial's arc shows. */
+export function batchProgress(processed: number, total: number): number {
+  return total > 0 ? Math.min(1, processed / total) : 0;
+}
+
 /** Running totals derived from results — the right panel updates as each file lands. */
 export function liveStats(results: FileResult[]): LiveStats {
   return results.reduce<LiveStats>(

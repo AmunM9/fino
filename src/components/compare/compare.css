@@ -21,7 +21,7 @@
   align-items: center;
   gap: var(--space-5);
   height: 56px;
-  padding: 0 var(--space-4) 0 var(--chrome-left); /* clear the traffic lights */
+  padding: 0 var(--chrome-right) 0 var(--chrome-left); /* clear the window controls */
   border-bottom: 1px solid var(--color-line);
 }
 .compare__title {

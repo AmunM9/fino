@@ -9,10 +9,14 @@
   document.documentElement.dataset.theme = light ? "light" : "dark";
   // Same rule as src/lib/platform.ts: CSS adapts the window chrome (macOS draws its traffic
   // lights over the content; Windows has a title bar of its own).
+  // `?platform=` lets dev previews in a browser pose as another OS (the app's URL has none).
   var ua = navigator.userAgent;
-  document.documentElement.dataset.platform = /Windows/i.test(ua)
-    ? "windows"
-    : /Mac OS X|Macintosh/i.test(ua)
-      ? "macos"
-      : "linux";
+  var preview = new URLSearchParams(location.search).get("platform");
+  document.documentElement.dataset.platform = /^(macos|windows|linux)$/.test(preview || "")
+    ? preview
+    : /Windows/i.test(ua)
+      ? "windows"
+      : /Mac OS X|Macintosh/i.test(ua)
+        ? "macos"
+        : "linux";
 })();

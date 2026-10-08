@@ -4,6 +4,7 @@ import type { SkipReason, Strength } from "./types";
 /** UI copy (Spanish). One place to translate. */
 export const t = {
   nav: { optimize: "Optimizar", history: "Historial", settings: "Ajustes" },
+  window: { controls: "Ventana", minimize: "Minimizar", maximize: "Maximizar", restore: "Restaurar", close: "Cerrar" },
 
   drop: {
     headline: ["Suelta", "tus fotos", "aquí."],
@@ -42,6 +43,7 @@ export const t = {
   },
 
   panel: {
+    progress: "Progreso del lote",
     saved: "ahorrados",
     photos: "Fotos",
     savings: "Ahorro",

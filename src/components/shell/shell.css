@@ -5,8 +5,8 @@
   background: var(--color-bg);
 }
 
-/* Invisible strip under the traffic lights that drags the window (macOS only: elsewhere the
-   title bar is native and --titlebar-height is 0). */
+/* Invisible strip along the top that drags the window: under the traffic lights on macOS,
+   beside Fino's own caption buttons on Windows. */
 .shell__drag {
   position: fixed;
   inset: 0 0 auto 0;
@@ -128,6 +128,51 @@
   top: 6px;
   right: 10px;
   z-index: 7;
+}
+:root[data-platform="windows"] .shell__mini {
+  top: 0;
+  right: calc(3 * var(--caption-button-width) + 4px);
+}
+
+/* ---------- Window controls (Windows) ---------- */
+.window-controls {
+  position: fixed;
+  top: 0;
+  right: 0;
+  z-index: 100;
+  display: flex;
+  height: 32px;
+}
+.window-controls button {
+  display: grid;
+  place-items: center;
+  width: var(--caption-button-width);
+  height: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-2);
+  transition: background-color var(--duration-fast) ease, color var(--duration-fast) ease;
+}
+.window-controls svg {
+  width: 15px;
+  height: 15px;
+  stroke-width: 1.25;
+}
+.window-controls button:hover {
+  background: color-mix(in oklch, var(--color-text) 9%, transparent);
+  color: var(--color-text);
+}
+.window-controls button:active {
+  background: color-mix(in oklch, var(--color-text) 15%, transparent);
+}
+.window-controls .window-controls__close:hover,
+.window-controls .window-controls__close:active {
+  background: var(--color-window-close);
+  color: #fff;
+}
+.window-controls button:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: -2px;
 }
 
 /* A soft cross-fade while the window resizes between modes. */

@@ -6,9 +6,11 @@ import { OptimizeView } from "./components/optimize/OptimizeView";
 import { SessionPanel } from "./components/panel/SessionPanel";
 import { SettingsView } from "./components/settings/SettingsView";
 import { Rail } from "./components/shell/Rail";
+import { WindowControls } from "./components/shell/WindowControls";
 import { ConfirmProvider } from "./components/ui/ConfirmDialog";
 import { Notice } from "./components/ui/controls";
 import { useFileDrop } from "./hooks/useFileDrop";
+import { platform } from "./lib/platform";
 import { t } from "./lib/strings";
 import { AppProvider, useApp } from "./state/AppProvider";
 import "./components/shell/shell.css";
@@ -38,6 +40,7 @@ function Shell() {
       <>
         <MiniView isOver={isOver} />
         {notice && <Notice message={notice} onClose={dismissNotice} />}
+        {platform === "windows" && <WindowControls compact />}
       </>
     );
   }
@@ -60,6 +63,7 @@ function Shell() {
       {view === "optimize" && <SessionPanel />}
       {compare && <CompareView />}
       {notice && <Notice message={notice} onClose={dismissNotice} />}
+      {platform === "windows" && <WindowControls compact={false} />}
     </div>
   );
 }

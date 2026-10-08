@@ -1,7 +1,7 @@
 import { formatBytes, formatCount, formatMonthYear, formatPercent, savedFraction, sizeParts } from "../../lib/format";
 import { t } from "../../lib/strings";
 import { useApp } from "../../state/AppProvider";
-import { liveStats } from "../../state/session";
+import { batchProgress, liveStats } from "../../state/session";
 import { SavingsGauge } from "./SavingsGauge";
 import "./panel.css";
 
@@ -14,7 +14,11 @@ export function SessionPanel() {
 
   return (
     <aside className="panel" aria-label="Resumen de la sesión">
-      <SavingsGauge savedBytes={live.savedBytes} fraction={fraction} active={session.phase !== "idle"} />
+      <SavingsGauge
+        savedBytes={live.savedBytes}
+        progress={batchProgress(live.processed, session.total)}
+        active={session.phase !== "idle"}
+      />
 
       <dl className="panel__stats">
         <div className="panel__stat">

@@ -116,8 +116,9 @@ export function CompareView() {
 
   return (
     <div className="compare" role="dialog" aria-modal="true" aria-label={`${t.session.compare}: ${current.name}`}>
-      <header className="compare__bar">
-        <div className="compare__title">
+      {/* The bar covers the window's drag strip: it drags the window itself. */}
+      <header className="compare__bar" data-tauri-drag-region>
+        <div className="compare__title" data-tauri-drag-region>
           <strong>{current.name}</strong>
           <span className="num">
             {index + 1} / {results.length}

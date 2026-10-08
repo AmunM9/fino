@@ -23,23 +23,32 @@ const TICKS = Array.from({ length: 25 }, (_, i) => -SWEEP / 2 + (SWEEP / 24) * i
 
 interface Props {
   savedBytes: number;
-  /** 0–1 share of bytes removed; drives the arc. */
-  fraction: number;
+  /** 0–1 share of the batch processed; drives the arc. */
+  progress: number;
   active: boolean;
   /** Shown above the figure, e.g. a check once a batch is done. */
   badge?: ReactNode;
 }
 
-/** Instrument-style dial: the arc fills with the share of bytes removed. */
-export function SavingsGauge({ savedBytes, fraction, active, badge }: Props) {
+/** Instrument-style dial: the arc fills as the batch progresses; the figure counts the bytes
+ *  saved so far. (The share saved is spelled out next to it, in the panel.) */
+export function SavingsGauge({ savedBytes, progress, active, badge }: Props) {
   const animated = useCountUp(savedBytes);
-  const shown = useCountUp(fraction);
+  const shown = useCountUp(progress);
   const { value, unit } = sizeParts(animated);
   const offset = ARC_LENGTH * (1 - Math.min(1, Math.max(0, shown)));
 
   return (
     <figure className="gauge" data-active={active} aria-label={`${value} ${unit} ${t.panel.saved}`}>
-      <svg viewBox="-4 -4 228 204" className="gauge__svg" aria-hidden="true">
+      <svg
+        viewBox="-4 -4 228 204"
+        className="gauge__svg"
+        role="progressbar"
+        aria-label={t.panel.progress}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={Math.round(Math.min(1, Math.max(0, progress)) * 100)}
+      >
         {TICKS.map((angle, i) => {
           const inner = polar(angle, 101);
           const outer = polar(angle, i % 6 === 0 ? 108 : 105);

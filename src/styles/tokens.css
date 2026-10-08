@@ -76,12 +76,25 @@
   --titlebar-height: 40px;
   --chrome-top: 64px;
   --chrome-left: 92px;
+  --chrome-right: var(--space-4);
   --mini-chrome-top: 44px;
+  --caption-button-width: 46px;
+  /* Windows' own close-button red, for the caption buttons Fino draws there. */
+  --color-window-close: #c42b1c;
 }
 
-/* Windows has a native title bar above the web view: no overlay to clear. Set before first
-   paint by public/theme-boot.js. */
-:root[data-platform="windows"],
+/* Windows: no system title bar (the window is undecorated). The top strip still drags the
+   window, and Fino's own caption buttons (46 × 32, as Windows draws them) sit top-right.
+   Set before first paint by public/theme-boot.js. */
+:root[data-platform="windows"] {
+  --titlebar-height: 32px;
+  --chrome-top: 44px;
+  --chrome-left: var(--space-4);
+  --chrome-right: calc(3 * var(--caption-button-width) + var(--space-4));
+  --mini-chrome-top: 32px;
+}
+
+/* Linux keeps its native title bar: nothing to clear. */
 :root[data-platform="linux"] {
   --titlebar-height: 0px;
   --chrome-top: var(--space-5);

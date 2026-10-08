@@ -11,8 +11,18 @@ export function detectPlatform(userAgent: string): Platform {
   return "linux";
 }
 
-export const platform: Platform =
-  typeof navigator === "undefined" ? "macos" : detectPlatform(navigator.userAgent);
+function isPlatform(value: string | null): value is Platform {
+  return value === "macos" || value === "windows" || value === "linux";
+}
+
+/** Dev previews in the browser can pose as another OS: `?platform=windows`. */
+const previewAs = import.meta.env.DEV ? new URLSearchParams(location.search).get("platform") : null;
+
+export const platform: Platform = isPlatform(previewAs)
+  ? previewAs
+  : typeof navigator === "undefined"
+    ? "macos"
+    : detectPlatform(navigator.userAgent);
 
 /** HEIC → JPEG needs the system's HEIC decoder, which only macOS provides (see fino-core). */
 export const heicConversionAvailable = platform === "macos";

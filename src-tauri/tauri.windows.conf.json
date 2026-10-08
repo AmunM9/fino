@@ -10,7 +10,9 @@
         "minHeight": 580,
         "backgroundColor": "#111317",
         "dragDropEnabled": true,
-        "visible": false
+        "visible": false,
+        "decorations": false,
+        "shadow": true
       }
     ]
   },
@@ -32,7 +34,8 @@
         ],
         "displayLanguageSelector": false,
         "installerIcon": "icons/icon.ico",
-        "installerHooks": "windows/installer-hooks.nsh"
+        "installerHooks": "windows/installer-hooks.nsh",
+        "template": "windows/installer.nsi"
       }
     }
   }
