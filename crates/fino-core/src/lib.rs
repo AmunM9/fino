@@ -14,6 +14,7 @@ pub mod metric;
 mod optimize;
 mod options;
 pub mod parallel;
+pub mod requant;
 pub mod resize;
 pub mod search;
 

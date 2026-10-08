@@ -6,8 +6,9 @@ use crate::jpeg::{self, exif, metadata, mpf, FrameKind, HeaderInfo};
 use crate::lossless;
 use crate::metric::{Reference, Score};
 use crate::options::{OptimizeOptions, Resize};
+use crate::requant::Coefficients;
 use crate::resize;
-use crate::search;
+use crate::search::{self, Encoder};
 
 const EXIF_HEADER: &[u8] = b"Exif\0\0";
 /// A lossless transcode must save at least this much to be worth writing.
@@ -82,6 +83,25 @@ fn read_orientation(data: &[u8]) -> u16 {
                 .and_then(|s| exif::orientation(&s.body[EXIF_HEADER.len()..]))
         })
         .unwrap_or(1)
+}
+
+/// RGB-coded JPEGs (Adobe transform 0) depend on their APP14 marker, which re-encoding drops.
+fn requantizable(header: &HeaderInfo) -> bool {
+    !(header.adobe_transform == Some(0) && header.components.len() == 3)
+}
+
+fn encoder<'a>(
+    coefficients: &'a mut Option<Coefficients>,
+    pixels: &'a Pixels,
+    chroma_block: (u8, u8),
+) -> Encoder<'a> {
+    match coefficients {
+        Some(c) => Encoder::Requantize(c),
+        None => Encoder::Pixels {
+            pixels,
+            chroma_block,
+        },
+    }
 }
 
 fn precheck(data: &[u8], header: &HeaderInfo, options: &OptimizeOptions) -> Option<SkipReason> {
@@ -176,7 +196,7 @@ impl<'a> Prepared<'a> {
         let small =
             match resize::target_size(self.pixels.width, self.pixels.height, self.orientation, fit)
             {
-                Some((w, h)) => resize::resize(&self.pixels, w, h)?,
+                Some((w, h)) => resize::thumbnail(&self.pixels, w, h)?,
                 None => self.pixels.clone(),
             };
         let upright = resize::orient(&small, self.orientation);
@@ -215,17 +235,20 @@ impl<'a> Prepared<'a> {
         let strength = self.options.strength;
         let chroma = CONVERTED_CHROMA;
         let targets = search::ceiling_targets(pixels, &reference, chroma, strength)?;
-        let found = search::find_smallest_with(
+        let encoder = || Encoder::Pixels {
             pixels,
+            chroma_block: chroma,
+        };
+        let found = search::find_smallest_with(
+            encoder(),
             &reference,
-            chroma,
             strength,
             self.options.quality_hint,
             targets,
         )?;
         let c_best = match found {
             Some(candidate) => candidate,
-            None => search::top_quality(pixels, &reference, chroma, strength)?,
+            None => search::top_quality(encoder(), &reference, strength)?,
         };
         let marker = format!(
             "{} q={} s={:.1} from=heic",
@@ -283,15 +306,35 @@ impl<'a> Prepared<'a> {
         let chroma = header.chroma_block();
         let strength = self.options.strength;
 
-        let candidate = match search::find_smallest(
-            pixels,
-            &reference,
-            chroma,
-            strength,
-            self.options.quality_hint,
-        )? {
+        // At the original size the source's own coefficients are re-quantized; a resized
+        // output has new pixels to encode.
+        let mut coefficients = (!is_resized && requantizable(header))
+            .then(|| Coefficients::read(original).ok())
+            .flatten();
+        let search = |coefficients: &mut Option<Coefficients>| {
+            search::find_smallest_with(
+                encoder(coefficients, pixels, chroma),
+                &reference,
+                strength,
+                self.options.quality_hint,
+                strength.targets(),
+            )
+        };
+        // A file libjpeg reads but cannot re-encode as is still has its pixels.
+        let found = match search(&mut coefficients) {
+            Err(_) if coefficients.is_some() => {
+                coefficients = None;
+                search(&mut coefficients)
+            }
+            other => other,
+        };
+        let candidate = match found? {
             Some(c) => Some(c),
-            None if is_resized => Some(search::top_quality(pixels, &reference, chroma, strength)?),
+            None if is_resized => Some(search::top_quality(
+                encoder(&mut coefficients, pixels, chroma),
+                &reference,
+                strength,
+            )?),
             None => None,
         };
         let perceptual = match candidate {
@@ -357,9 +400,8 @@ impl<'a> Prepared<'a> {
         header: &HeaderInfo,
         secondaries: &[mpf::MpImage],
     ) -> Result<Option<Optimized>> {
-        // RGB-coded JPEGs (Adobe transform 0) need their APP14 marker to decode correctly;
-        // the transcode keeps their coefficients, but metadata splicing drops APP14.
-        if header.adobe_transform == Some(0) && header.components.len() == 3 {
+        // The transcode keeps their coefficients, but metadata splicing drops APP14.
+        if !requantizable(header) {
             return Ok(None);
         }
         let Ok(jpeg) = lossless::transcode(original) else {

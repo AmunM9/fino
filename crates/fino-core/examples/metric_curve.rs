@@ -20,10 +20,11 @@ fn main() {
                 codec::encode(&px, EncodeParams::new(q as f32, chroma, Effort::Probe)).unwrap();
             let d = codec::decode(&jpeg, false).unwrap();
             let t = Instant::now();
-            let g = r.global(&d).unwrap();
+            let g = r.global(&r.frame(&d).unwrap()).unwrap();
             let gt = t.elapsed().as_millis();
             let t = Instant::now();
-            let (mean, worst) = r.tiles(&d).unwrap();
+            let score = r.compare(&d).unwrap();
+            let (mean, worst) = (score.mean, score.worst);
             let tt = t.elapsed().as_millis();
             let truth = ssimulacra2(&px, &d);
             println!("  q{q} {:>5.1}%  half-global {g:5.1} ({gt}ms)  tiles mean {mean:5.1} worst {worst:5.1} ({tt}ms)  TRUE {truth:5.1}",

@@ -5,7 +5,10 @@
 use crate::codec::Pixels;
 use crate::error::{FinoError, Result};
 use crate::options::{Resize, ResizeMode};
-use fast_image_resize::{images::Image, FilterType, PixelType, ResizeAlg, ResizeOptions, Resizer};
+use fast_image_resize::{
+    images::{Image, ImageRef},
+    FilterType, PixelType, ResizeAlg, ResizeOptions, Resizer,
+};
 
 /// Orientations 5–8 swap width and height on display.
 fn is_transposed(orientation: u16) -> bool {
@@ -74,16 +77,27 @@ pub fn orient(pixels: &Pixels, orientation: u16) -> Pixels {
     }
 }
 
+/// Output-quality downscale (Lanczos3).
 pub fn resize(pixels: &Pixels, width: u32, height: u32) -> Result<Pixels> {
+    resize_with(pixels, width, height, FilterType::Lanczos3)
+}
+
+/// Thumbnail downscale: an area average, several times cheaper than Lanczos3 at the large
+/// factors a UI preview needs, with little aliasing.
+pub fn thumbnail(pixels: &Pixels, width: u32, height: u32) -> Result<Pixels> {
+    resize_with(pixels, width, height, FilterType::Box)
+}
+
+fn resize_with(pixels: &Pixels, width: u32, height: u32, filter: FilterType) -> Result<Pixels> {
     let kind = if pixels.channels == 1 {
         PixelType::U8
     } else {
         PixelType::U8x3
     };
-    let src = Image::from_vec_u8(pixels.width, pixels.height, pixels.data.clone(), kind)
+    let src = ImageRef::new(pixels.width, pixels.height, &pixels.data, kind)
         .map_err(|e| FinoError::Resize(e.to_string()))?;
     let mut dst = Image::new(width, height, kind);
-    let options = ResizeOptions::new().resize_alg(ResizeAlg::Convolution(FilterType::Lanczos3));
+    let options = ResizeOptions::new().resize_alg(ResizeAlg::Convolution(filter));
     Resizer::new()
         .resize(&src, &mut dst, &options)
         .map_err(|e| FinoError::Resize(e.to_string()))?;

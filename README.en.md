@@ -55,17 +55,22 @@ same resolution · same metadata · SSIMULACRA 2 ≈ 85
 ## How the engine works
 
 ```
-JPEG ─► inspect ─► decode ─► [Lanczos3 resize]
-     ─► quality search with the fast encoder (batch hint → gallop → bisection)
-           each probe: global score at ½ res → hardest tiles at full res
-           winner: verified on EVERY tile
+JPEG ─► inspect ─► decode + DCT coefficients ─► [Lanczos3 resize]
+     ─► quality search (batch hint → jump to predicted crossing → interpolation)
+           each probe: re-quantization in the DCT domain
+                       hardest tiles at full res → global score at ½ res
+           the global score's error map picks the tiles to watch
      ─► winner written progressive + optimal Huffman (same pixels)
      ─► little gain? → lossless pass (DCT coefficients untouched)
      ─► original metadata + "Fino/" marker ─► atomic write
 ```
 
-- **Encoder**: libjpeg-turbo (through mozjpeg in fast mode) with N. Robidoux's quantization
-  table; progressive output with optimal Huffman tables. Keeps the original chroma subsampling.
+- **Encoder**: re-quantizes the JPEG's own DCT coefficients with N. Robidoux's table — no
+  second color conversion, DCT or chroma resampling — so each probe costs half as much and
+  the only added loss is the new quantization. Progressive output with optimal Huffman
+  tables; keeps the original chroma subsampling. HEIC sources and resized outputs are
+  encoded from pixels with libjpeg-turbo (through mozjpeg).
+- **Speed**: 89 photos of 24 MP in ~22 s on an M1 Pro (about 2 probes per photo).
 - **Metric**: [zensim](https://crates.io/crates/zensim), a fast SSIMULACRA 2 approximation in
   XYB: global score (banding, color) + **worst tile** at full resolution (blocking, ringing),
   because the eye goes straight to the worst part of a photo.

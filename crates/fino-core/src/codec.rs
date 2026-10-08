@@ -131,6 +131,15 @@ impl EncodeParams {
     }
 }
 
+/// Quantization table (natural order) used at `quality` for every channel. N. Robidoux's
+/// table is mozjpeg's default (better than Annex K for photos).
+pub fn quant_table(quality: f32) -> [u16; 64] {
+    let table = NRobidoux.scaled(quality, quality);
+    // SAFETY: a QTable holds exactly 64 entries.
+    let steps = unsafe { std::slice::from_raw_parts(table.as_ptr(), 64) };
+    std::array::from_fn(|k| steps[k] as u16)
+}
+
 /// mozjpeg reports libjpeg errors by unwinding; convert them into `FinoError`.
 fn guarded<T>(f: impl FnOnce() -> std::io::Result<T>) -> Result<T> {
     match catch_unwind(AssertUnwindSafe(f)) {

@@ -9,9 +9,12 @@
 use crate::codec::Pixels;
 use crate::error::{FinoError, Result};
 use rayon::prelude::*;
+use std::borrow::Cow;
 use std::cell::RefCell;
+use std::sync::OnceLock;
 use zensim::{
-    PixelFormat, PrecomputedReference, StridedBytes, Zensim, ZensimProfile, ZensimScratch,
+    DiffmapOptions, DiffmapWeighting, PixelFormat, PrecomputedReference, StridedBytes, Zensim,
+    ZensimProfile, ZensimScratch,
 };
 
 thread_local! {
@@ -43,9 +46,10 @@ pub struct Score {
     /// Whole-frame score, SSIMULACRA 2 scale. Sees low-frequency defects (banding,
     /// colour shifts across a sky) that no single tile can.
     pub global: f64,
-    /// Area-weighted mean of tile scores, SSIMULACRA 2 scale.
+    /// Area-weighted mean of the scored tiles, SSIMULACRA 2 scale. The search scores the
+    /// hardest tiles only; [`Reference::compare`] scores every tile.
     pub mean: f64,
-    /// Lowest tile score, SSIMULACRA 2 scale.
+    /// Lowest score among the scored tiles, SSIMULACRA 2 scale.
     pub worst: f64,
 }
 
@@ -57,16 +61,52 @@ struct Tile {
     h: u32,
 }
 
+impl Tile {
+    fn scaled_down(self, scale: u32) -> Tile {
+        Tile {
+            x: self.x / scale,
+            y: self.y / scale,
+            w: self.w / scale,
+            h: self.h / scale,
+        }
+    }
+
+    fn area(self) -> f64 {
+        self.w as f64 * self.h as f64
+    }
+}
+
 /// Precomputed reference image, reused for every candidate of the search.
-pub struct Reference {
+///
+/// Full-resolution tile references are built lazily: the search only ever looks closely at
+/// the hardest tiles, and each precomputed tile costs as much as a comparison.
+pub struct Reference<'a> {
     width: u32,
     height: u32,
-    tiles: Vec<(Tile, PrecomputedReference)>,
+    /// Source pixels as interleaved RGB, for the lazily built full-resolution tiles.
+    source: Cow<'a, [u8]>,
+    tiles: Vec<Tile>,
+    full: Vec<OnceLock<PrecomputedReference>>,
     global: PrecomputedReference,
     /// 1 = full resolution, 2 = half.
     global_scale: u32,
     zensim: Zensim,
     zensim_parallel: Zensim,
+}
+
+/// A candidate prepared for scoring: RGB at full resolution plus the global frame, both
+/// computed once and shared by every score taken from it.
+pub struct Frame<'a> {
+    rgb: Cow<'a, [u8]>,
+    /// The global frame when it is downscaled; `None` means it is `rgb` itself.
+    small: Option<Vec<u8>>,
+    width: u32,
+}
+
+impl Frame<'_> {
+    fn global(&self) -> &[u8] {
+        self.small.as_deref().unwrap_or(&self.rgb)
+    }
 }
 
 fn spans(len: u32, tile: u32) -> Vec<(u32, u32)> {
@@ -92,7 +132,7 @@ fn tiles_for(width: u32, height: u32) -> Vec<Tile> {
         .collect()
 }
 
-fn rgb_bytes(pixels: &Pixels) -> std::borrow::Cow<'_, [u8]> {
+fn rgb_bytes(pixels: &Pixels) -> Cow<'_, [u8]> {
     match pixels.channels {
         1 => pixels
             .data
@@ -106,52 +146,25 @@ fn rgb_bytes(pixels: &Pixels) -> std::borrow::Cow<'_, [u8]> {
 
 /// 2×2 box average of interleaved RGB (odd last row/column dropped).
 fn half_res(rgb: &[u8], width: u32, height: u32) -> (Vec<u8>, u32, u32) {
-    let (w2, h2) = (width / 2, height / 2);
+    let (w2, h2) = (width as usize / 2, height as usize / 2);
     let stride = width as usize * 3;
-    let rows: Vec<Vec<u8>> = (0..h2 as usize)
-        .into_par_iter()
-        .map(|y| {
-            let top = &rgb[2 * y * stride..];
-            let bottom = &rgb[(2 * y + 1) * stride..];
-            let mut row = Vec::with_capacity(w2 as usize * 3);
-            for x in 0..w2 as usize {
-                for c in 0..3 {
-                    let i = 6 * x + c;
-                    let sum =
-                        top[i] as u16 + top[i + 3] as u16 + bottom[i] as u16 + bottom[i + 3] as u16;
-                    row.push(((sum + 2) / 4) as u8);
-                }
+    let mut out = vec![0u8; w2 * h2 * 3];
+    out.par_chunks_mut(w2 * 3).enumerate().for_each(|(y, row)| {
+        let top = &rgb[2 * y * stride..][..stride];
+        let bottom = &rgb[(2 * y + 1) * stride..][..stride];
+        for (x, px) in row.as_chunks_mut::<3>().0.iter_mut().enumerate() {
+            for (c, value) in px.iter_mut().enumerate() {
+                let i = 6 * x + c;
+                let sum =
+                    top[i] as u16 + top[i + 3] as u16 + bottom[i] as u16 + bottom[i + 3] as u16;
+                *value = ((sum + 2) / 4) as u8;
             }
-            row
-        })
-        .collect();
-    (rows.concat(), w2, h2)
+        }
+    });
+    (out, w2 as u32, h2 as u32)
 }
 
-/// The frame the global score is computed on (possibly half resolution).
-fn global_frame(
-    rgb: &[u8],
-    width: u32,
-    height: u32,
-    scale: u32,
-) -> (std::borrow::Cow<'_, [u8]>, Tile) {
-    if scale == 2 {
-        let (small, w, h) = half_res(rgb, width, height);
-        (small.into(), Tile { x: 0, y: 0, w, h })
-    } else {
-        (
-            rgb.into(),
-            Tile {
-                x: 0,
-                y: 0,
-                w: width,
-                h: height,
-            },
-        )
-    }
-}
-
-fn view<'a>(rgb: &'a [u8], width: u32, t: Tile) -> Result<StridedBytes<'a>> {
+fn view(rgb: &[u8], width: u32, t: Tile) -> Result<StridedBytes<'_>> {
     let stride = width as usize * 3;
     let start = t.y as usize * stride + t.x as usize * 3;
     StridedBytes::try_new(
@@ -164,35 +177,50 @@ fn view<'a>(rgb: &'a [u8], width: u32, t: Tile) -> Result<StridedBytes<'a>> {
     .map_err(|e| FinoError::Metric(e.to_string()))
 }
 
-impl Reference {
-    pub fn new(pixels: &Pixels) -> Result<Self> {
+fn frame_of<'a>(rgb: impl Into<Cow<'a, [u8]>>, width: u32, height: u32, scale: u32) -> Frame<'a> {
+    let rgb = rgb.into();
+    let small = (scale == 2).then(|| half_res(&rgb, width, height).0);
+    Frame { rgb, small, width }
+}
+
+fn metric_err(e: zensim::ZensimError) -> FinoError {
+    FinoError::Metric(e.to_string())
+}
+
+impl<'a> Reference<'a> {
+    pub fn new(pixels: &'a Pixels) -> Result<Self> {
         if pixels.width < 8 || pixels.height < 8 {
             return Err(FinoError::Metric("image smaller than 8×8".into()));
         }
         let zensim = Zensim::new(ZensimProfile::latest()).with_parallel(false);
-        let rgb = rgb_bytes(pixels);
-        let tiles = tiles_for(pixels.width, pixels.height)
-            .into_par_iter()
-            .map(|t| {
-                let pre = zensim
-                    .precompute_reference(&view(&rgb, pixels.width, t)?)
-                    .map_err(|e| FinoError::Metric(e.to_string()))?;
-                Ok((t, pre))
-            })
-            .collect::<Result<Vec<_>>>()?;
         let zensim_parallel = Zensim::new(ZensimProfile::latest());
         let global_scale = if pixels.width.min(pixels.height) >= HALF_RES_GLOBAL_MIN_SIDE {
             2
         } else {
             1
         };
-        let (frame, area) = global_frame(&rgb, pixels.width, pixels.height, global_scale);
+        let tiles = tiles_for(pixels.width, pixels.height);
+        let source = rgb_bytes(pixels);
+        let frame = frame_of(&source[..], pixels.width, pixels.height, global_scale);
+        let (gw, gh) = (pixels.width / global_scale, pixels.height / global_scale);
         let global = zensim_parallel
-            .precompute_reference(&view(&frame, area.w, area)?)
-            .map_err(|e| FinoError::Metric(e.to_string()))?;
+            .precompute_reference(&view(
+                frame.global(),
+                gw,
+                Tile {
+                    x: 0,
+                    y: 0,
+                    w: gw,
+                    h: gh,
+                },
+            )?)
+            .map_err(metric_err)?;
+        drop(frame);
         Ok(Self {
             width: pixels.width,
             height: pixels.height,
+            source,
+            full: tiles.iter().map(|_| OnceLock::new()).collect(),
             tiles,
             global,
             global_scale,
@@ -201,10 +229,35 @@ impl Reference {
         })
     }
 
-    /// Full verdict: whole-frame score plus tile statistics.
+    fn global_size(&self) -> (u32, u32) {
+        (
+            self.width / self.global_scale,
+            self.height / self.global_scale,
+        )
+    }
+
+    /// Prepares `candidate` for scoring.
+    pub fn frame<'c>(&self, candidate: &'c Pixels) -> Result<Frame<'c>> {
+        if candidate.width != self.width || candidate.height != self.height {
+            return Err(FinoError::Metric(
+                "candidate size differs from reference".into(),
+            ));
+        }
+        Ok(frame_of(
+            rgb_bytes(candidate),
+            candidate.width,
+            candidate.height,
+            self.global_scale,
+        ))
+    }
+
+    /// Full verdict: whole-frame score plus statistics over every tile at full resolution.
     pub fn compare(&self, candidate: &Pixels) -> Result<Score> {
-        let global = self.global(candidate)?;
-        let (mean, worst) = self.tiles(candidate)?;
+        let frame = self.frame(candidate)?;
+        let global = self.global(&frame)?;
+        let all: Vec<usize> = (0..self.tiles.len()).collect();
+        let scores = self.tile_scores(&frame, &all)?;
+        let (mean, worst) = self.summarize(&all, &scores);
         Ok(Score {
             global,
             mean,
@@ -212,48 +265,84 @@ impl Reference {
         })
     }
 
-    /// Whole-frame score only — cheap first gate inside the search.
-    pub fn global(&self, candidate: &Pixels) -> Result<f64> {
-        self.check_size(candidate)?;
-        let rgb = rgb_bytes(candidate);
-        let (frame, area) = global_frame(&rgb, self.width, self.height, self.global_scale);
-        let distorted = view(&frame, area.w, area)?;
+    fn global_view<'f>(&self, frame: &'f Frame) -> Result<StridedBytes<'f>> {
+        let (w, h) = self.global_size();
+        view(frame.global(), w, Tile { x: 0, y: 0, w, h })
+    }
+
+    /// Whole-frame score (half resolution for large photos).
+    pub fn global(&self, frame: &Frame) -> Result<f64> {
+        let distorted = self.global_view(frame)?;
         with_scratch(|scratch| {
             self.zensim_parallel
                 .compute_with_ref_into(&self.global, &distorted, scratch)
                 .map(|r| r.approx_ssim2())
-                .map_err(|e| FinoError::Metric(e.to_string()))
+                .map_err(metric_err)
         })
     }
 
-    /// (area-weighted mean, worst) over all tiles.
-    pub fn tiles(&self, candidate: &Pixels) -> Result<(f64, f64)> {
-        let all: Vec<usize> = (0..self.tiles.len()).collect();
-        let scores = self.tile_scores(candidate, &all)?;
-        Ok(self.summarize(&all, &scores))
+    /// Whole-frame score plus how hard each tile is (higher = harder), pooled from the
+    /// same pass's per-pixel error map. Ranks tiles nearly as well as scoring each one on
+    /// the half-resolution frame, at a fraction of the cost.
+    pub fn global_and_difficulty(&self, frame: &Frame) -> Result<(f64, Vec<f64>)> {
+        let mut options = DiffmapOptions::from(DiffmapWeighting::Balanced);
+        options.include_edge_mse = true;
+        let result = self
+            .zensim_parallel
+            .compute_with_ref_and_diffmap(&self.global, &self.global_view(frame)?, options)
+            .map_err(metric_err)?;
+        let (map, width) = (result.diffmap(), result.width());
+        let difficulty = self
+            .tiles
+            .iter()
+            .map(|t| {
+                let t = t.scaled_down(self.global_scale);
+                let sum: f64 = (t.y..t.y + t.h)
+                    .map(|y| {
+                        let row = y as usize * width + t.x as usize;
+                        map[row..row + t.w as usize]
+                            .iter()
+                            .map(|&v| v as f64)
+                            .sum::<f64>()
+                    })
+                    .sum();
+                sum / t.area().max(1.0)
+            })
+            .collect();
+        Ok((result.result().approx_ssim2(), difficulty))
     }
 
     pub fn tile_count(&self) -> usize {
         self.tiles.len()
     }
 
-    /// Scores of the tiles at `indices` (same order).
-    pub fn tile_scores(&self, candidate: &Pixels, indices: &[usize]) -> Result<Vec<f64>> {
-        self.check_size(candidate)?;
-        let rgb = rgb_bytes(candidate);
+    fn full_reference(&self, i: usize) -> Result<&PrecomputedReference> {
+        if let Some(pre) = self.full[i].get() {
+            return Ok(pre);
+        }
+        let pre = self
+            .zensim
+            .precompute_reference(&view(&self.source, self.width, self.tiles[i])?)
+            .map_err(metric_err)?;
+        Ok(self.full[i].get_or_init(|| pre))
+    }
+
+    /// Full-resolution scores of the tiles at `indices` (same order).
+    pub fn tile_scores(&self, frame: &Frame, indices: &[usize]) -> Result<Vec<f64>> {
         indices
             .par_iter()
             .map(|&i| {
-                let (t, pre) = self
+                let t = *self
                     .tiles
                     .get(i)
                     .ok_or_else(|| FinoError::Metric("tile index out of range".into()))?;
-                let distorted = view(&rgb, self.width, *t)?;
+                let pre = self.full_reference(i)?;
+                let distorted = view(&frame.rgb, frame.width, t)?;
                 with_scratch(|scratch| {
                     self.zensim
                         .compute_with_ref_into(pre, &distorted, scratch)
                         .map(|r| r.approx_ssim2())
-                        .map_err(|e| FinoError::Metric(e.to_string()))
+                        .map_err(metric_err)
                 })
             })
             .collect()
@@ -264,7 +353,7 @@ impl Reference {
         let weighted: Vec<(f64, f64)> = indices
             .iter()
             .zip(scores)
-            .map(|(&i, &s)| (s, self.tiles[i].0.w as f64 * self.tiles[i].0.h as f64))
+            .map(|(&i, &s)| (s, self.tiles[i].area()))
             .collect();
         let area: f64 = weighted.iter().map(|(_, a)| a).sum();
         let mean = weighted.iter().map(|(s, a)| s * a).sum::<f64>() / area.max(1.0);
@@ -273,15 +362,6 @@ impl Reference {
             .map(|(s, _)| *s)
             .fold(f64::INFINITY, f64::min);
         (mean, worst)
-    }
-
-    fn check_size(&self, candidate: &Pixels) -> Result<()> {
-        if candidate.width != self.width || candidate.height != self.height {
-            return Err(FinoError::Metric(
-                "candidate size differs from reference".into(),
-            ));
-        }
-        Ok(())
     }
 }
 

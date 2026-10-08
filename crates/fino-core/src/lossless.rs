@@ -18,7 +18,7 @@ unsafe extern "C-unwind" fn unwind_on_error(cinfo: &mut ffi::jpeg_common_struct)
 
 unsafe extern "C-unwind" fn silence(_cinfo: &mut ffi::jpeg_common_struct, _level: c_int) {}
 
-fn error_mgr() -> Box<ffi::jpeg_error_mgr> {
+pub(crate) fn error_mgr() -> Box<ffi::jpeg_error_mgr> {
     // SAFETY: jpeg_error_mgr is a plain C struct; jpeg_std_error fully initializes it
     // before we override the two callbacks.
     unsafe {

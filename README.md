@@ -53,17 +53,22 @@ misma resolución · mismos metadatos · SSIMULACRA 2 ≈ 85
 ## Cómo funciona el motor
 
 ```
-JPEG ─► inspección ─► decodificación ─► [resize Lanczos3]
-     ─► búsqueda de calidad con el encoder rápido (pista del lote → galope → bisección)
-           cada prueba: score global ½ res → tiles más difíciles a resolución completa
-           ganadora: verificada en TODOS los tiles
+JPEG ─► inspección ─► decodificación + coeficientes DCT ─► [resize Lanczos3]
+     ─► búsqueda de calidad (pista del lote → salto al cruce previsto → interpolación)
+           cada prueba: recuantización en el dominio DCT
+                        tiles más difíciles a resolución completa → score global ½ res
+           el mapa de error del score global elige qué tiles vigilar
      ─► ganadora escrita progresiva + Huffman óptimo (mismos píxeles)
      ─► ¿poca ganancia? → pasada sin pérdida (coeficientes DCT intactos)
      ─► metadatos originales + marcador «Fino/» ─► escritura atómica
 ```
 
-- **Encoder**: libjpeg-turbo (vía mozjpeg en modo rápido) con la tabla de cuantización de
-  N. Robidoux; salida progresiva con Huffman óptimo. Conserva el submuestreo de croma original.
+- **Encoder**: recuantiza los coeficientes DCT del propio JPEG con la tabla de N. Robidoux, sin
+  segunda conversión de color, DCT ni remuestreo de croma: cada prueba cuesta la mitad y la
+  única pérdida añadida es la nueva cuantización. Salida progresiva con Huffman óptimo;
+  conserva el submuestreo de croma original. Los HEIC y las salidas redimensionadas se
+  codifican desde píxeles con libjpeg-turbo (vía mozjpeg).
+- **Velocidad**: 89 fotos de 24 MP en ~22 s en un M1 Pro (unas 2 pruebas por foto).
 - **Métrica**: [zensim](https://crates.io/crates/zensim), aproximación rápida de SSIMULACRA 2 en
   XYB: score global (banding, color) + **peor tile** a resolución completa (bloques, ringing),
   porque el ojo se va directo a la peor zona de la foto.

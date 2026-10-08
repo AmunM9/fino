@@ -26,6 +26,12 @@ fn main() {
         .unwrap()
         .filter_map(|e| e.ok())
         .map(|e| e.file_name())
+        .filter(|n| {
+            let ext = std::path::Path::new(n)
+                .extension()
+                .map(|e| e.to_ascii_lowercase());
+            matches!(ext.as_ref().and_then(|e| e.to_str()), Some("jpg" | "jpeg"))
+        })
         .filter(|n| reference.join(n).exists())
         .collect();
     names.sort();
