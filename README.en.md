@@ -56,6 +56,8 @@ same resolution · same metadata · SSIMULACRA 2 ≈ 85
 
 ## Install
 
+Download the installer from the [latest release](https://github.com/AmunM9/fino/releases/latest):
+
 - **macOS**: open the `.dmg` and drag Fino to Applications.
 - **Windows**: run the `Fino_x.y.z_x64-setup.exe` installer.
 

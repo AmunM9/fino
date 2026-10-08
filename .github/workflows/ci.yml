@@ -15,6 +15,8 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
+  # No debug info in test builds: much less to link (PDBs on Windows) and a smaller cache.
+  CARGO_PROFILE_DEV_DEBUG: 0
 
 jobs:
   test:
@@ -29,7 +31,11 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy, rustfmt
+      # Saved even when a check fails, so a red run doesn't leave the next one compiling from scratch.
       - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       # libjpeg's x86 SIMD is assembled with NASM.
       - uses: ilammy/setup-nasm@v1
       - uses: actions/setup-node@v7
@@ -44,24 +50,3 @@ jobs:
       - run: cargo clippy --workspace --all-targets --locked -- -D warnings
       # Every package's tests, even after a failure, so one run shows them all.
       - run: cargo test --workspace --locked --no-fail-fast
-
-  windows-installer:
-    name: Windows installer
-    needs: test
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-      - uses: ilammy/setup-nasm@v1
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 20
-          cache: npm
-      - run: npm ci
-      - run: npx tauri build
-      - uses: actions/upload-artifact@v7
-        with:
-          name: fino-windows-installer
-          path: target/release/bundle/nsis/*.exe
-          if-no-files-found: error
