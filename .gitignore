@@ -37,3 +37,6 @@ photos
 
 # Private research notes (kept locally)
 docs/research
+
+# Release builds (installers), kept out of git
+/builds
