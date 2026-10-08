@@ -315,13 +315,17 @@ fn restore_session(state: &AppState, id: &str) -> Result<(), String> {
 pub fn take_opened_paths(opened: State<OpenedPaths>) -> Vec<String> {
     let paths = opened.take();
     if !paths.is_empty() {
-        eprintln!("fino: {} item(s) from Finder handed to the UI", paths.len());
+        eprintln!(
+            "fino: {} item(s) opened with Fino handed to the UI",
+            paths.len()
+        );
     }
     paths
 }
 
-/// Paths Finder handed over (Dock drop, "Open With"). Managed when the app is built — not in
-/// `setup` — because on a cold launch macOS delivers them before setup has run.
+/// Paths the system handed over: Finder (Dock drop, "Open With") on macOS, the command line
+/// on Windows. Managed when the app is built — not in `setup` — because on a cold launch
+/// macOS delivers them before setup has run.
 #[derive(Default)]
 pub struct OpenedPaths(Mutex<Vec<String>>);
 
@@ -410,6 +414,11 @@ mod tests {
     #[test]
     fn rejects_relative_paths() {
         assert!(absolute_paths(vec!["photos/a.jpg".into()]).is_err());
-        assert!(absolute_paths(vec!["/photos/a.jpg".into()]).is_ok());
+        let absolute = if cfg!(windows) {
+            r"C:\photos\a.jpg"
+        } else {
+            "/photos/a.jpg"
+        };
+        assert!(absolute_paths(vec![absolute.into()]).is_ok());
     }
 }

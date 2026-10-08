@@ -45,12 +45,23 @@ fn journal(backup_dir: &Path, entry: &BackupEntry) {
     }
 }
 
+/// A size preset's label as a folder name, valid on macOS and Windows alike.
 fn safe_label(label: &str) -> String {
     let cleaned: String = label
         .chars()
-        .map(|c| if c == '/' || c == ':' { '-' } else { c })
+        .map(|c| {
+            if c.is_control() || matches!(c, '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|') {
+                '-'
+            } else {
+                c
+            }
+        })
         .collect();
-    let trimmed = cleaned.trim().trim_start_matches('.');
+    // Windows also refuses names ending in a dot or a space.
+    let trimmed = cleaned
+        .trim()
+        .trim_start_matches('.')
+        .trim_end_matches(['.', ' ']);
     if trimmed.is_empty() {
         "Size".into()
     } else {
@@ -661,5 +672,7 @@ mod tests {
     fn size_labels_cannot_escape_the_folder() {
         assert_eq!(safe_label("../x/y"), "-x-y");
         assert_eq!(safe_label("  "), "Size");
+        assert_eq!(safe_label(r#"2048 px: "web"?"#), "2048 px- -web--");
+        assert_eq!(safe_label(r"a\b|c."), "a-b-c");
     }
 }

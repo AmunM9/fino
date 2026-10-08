@@ -10,7 +10,7 @@ export function resolveTheme(appearance: Appearance, systemIsLight: boolean): "l
   return appearance;
 }
 
-/** Applies the chosen appearance to <html data-theme>, following macOS live when "system". */
+/** Applies the chosen appearance to <html data-theme>, following the system live when "system". */
 export function useAppearance(appearance: Appearance | undefined): void {
   useEffect(() => {
     if (!appearance) return;

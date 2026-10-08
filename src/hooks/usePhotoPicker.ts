@@ -1,6 +1,7 @@
 import { open } from "@tauri-apps/plugin-dialog";
 import { useCallback } from "react";
 import { errorMessage } from "../lib/ipc";
+import { heicConversionAvailable } from "../lib/platform";
 import { useApp } from "../state/AppProvider";
 
 const PHOTO_EXTENSIONS = ["jpg", "jpeg", "jpe", "jfif"];
@@ -14,7 +15,7 @@ function asList(selection: string | string[] | null): string[] {
 /** Opens the native picker for photos (or a folder) and starts optimizing the choice. */
 export function usePhotoPicker(): (directory: boolean) => Promise<void> {
   const { settings, start, notify } = useApp();
-  const convertHeic = settings?.heicToJpeg ?? false;
+  const convertHeic = heicConversionAvailable && (settings?.heicToJpeg ?? false);
 
   return useCallback(
     async (directory: boolean) => {

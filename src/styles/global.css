@@ -74,3 +74,10 @@ button {
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+
+/* WebView2 (Windows) draws classic, always-visible scrollbars; keep them slim and in the
+   palette, like macOS's overlay ones. */
+:root[data-platform="windows"] * {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-line-strong) transparent;
+}

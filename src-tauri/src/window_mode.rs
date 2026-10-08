@@ -141,6 +141,8 @@ fn move_window<R: Runtime>(
     })
 }
 
+/// Windows and Linux: Tauri's own window calls, with the same anchoring as macOS. Screen
+/// coordinates grow downward here, so they are mirrored into `Frame`'s upward convention.
 #[cfg(not(target_os = "macos"))]
 fn move_window<R: Runtime>(
     window: &WebviewWindow<R>,
@@ -148,6 +150,9 @@ fn move_window<R: Runtime>(
     remembered: Remembered,
     _animate: bool,
 ) -> tauri::Result<()> {
+    if window.is_maximized()? {
+        window.unmaximize()?;
+    }
     let scale = window.scale_factor()?;
     let now = window.inner_size()?.to_logical::<f64>(scale);
     if compact && now.width > MINI.0 + 1.0 {
@@ -158,7 +163,42 @@ fn move_window<R: Runtime>(
     } else {
         remembered.get().unwrap_or(FULL)
     };
-    window.set_size(logical(size))
+    let before = (window.outer_position()?, window.outer_size()?);
+    window.set_size(logical(size))?;
+    let Some(monitor) = window.current_monitor()? else {
+        return Ok(());
+    };
+    let mirrored = |x: f64, y: f64, width: f64, height: f64| Frame {
+        x,
+        y: -(y + height),
+        width,
+        height,
+    };
+    let (position, outer) = before;
+    let current = mirrored(
+        position.x as f64,
+        position.y as f64,
+        outer.width as f64,
+        outer.height as f64,
+    );
+    let area = monitor.work_area();
+    let visible = mirrored(
+        area.position.x as f64,
+        area.position.y as f64,
+        area.size.width as f64,
+        area.size.height as f64,
+    );
+    let resized = window.outer_size()?;
+    let target = target_frame(
+        current,
+        (resized.width as f64, resized.height as f64),
+        visible,
+    );
+    let top = -(target.y + target.height);
+    window.set_position(tauri::PhysicalPosition::new(
+        target.x.round() as i32,
+        top.round() as i32,
+    ))
 }
 
 #[cfg(test)]

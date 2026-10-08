@@ -14,6 +14,13 @@ edition = "2021"
 name = "fino_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
+# Not `fino`: the CLI owns that name, and two binaries with one name collide in the shared
+# target directory (fatally on Windows, where both write `fino.pdb`). The bundled app is
+# still called Fino (`mainBinaryName` in tauri.conf.json).
+[[bin]]
+name = "fino-app"
+path = "src/main.rs"
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
@@ -29,6 +36,10 @@ rusqlite = { version = "0.40.2", features = ["bundled"] }
 
 [dev-dependencies]
 tempfile = "3.27.0"
+
+# Windows and Linux hand "Open with" files to a new process; it forwards them to the open window.
+[target.'cfg(not(target_os = "macos"))'.dependencies]
+tauri-plugin-single-instance = "2"
 
 # Native animated window resizing for the mini window (already in the tree through Tauri).
 [target.'cfg(target_os = "macos")'.dependencies]

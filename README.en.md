@@ -6,10 +6,10 @@
 
 English · [Español](README.md)
 
-Fino is a macOS app that recompresses JPEGs *perceptually*. It tries smaller and smaller versions of each photo, compares every candidate with the original region by region, and keeps the smallest one that shows no visible artifact. Built from open components, running offline on your Mac.
+Fino is a macOS and Windows app that recompresses JPEGs *perceptually*. It tries smaller and smaller versions of each photo, compares every candidate with the original region by region, and keeps the smallest one that shows no visible artifact. Built from open components, running offline on your computer.
 
 ```
-89 camera photos (24 MP)   511 MB → 156 MB   (−69.4%)   ~0.6 s per photo
+89 camera photos (24 MP)   511 MB → 156 MB   (−69.5%)   ~0.25 s per photo
 same resolution · same metadata · SSIMULACRA 2 ≈ 85
 ```
 
@@ -35,21 +35,21 @@ same resolution · same metadata · SSIMULACRA 2 ≈ 85
 | | |
 |---|---|
 | **Optimize originals** | Replaces each photo, keeping a backup first so you can **undo the whole session** (kept 1, 7 or 30 days). |
-| **Backups** | Stored in `~/Library/Application Support/app.fino.desktop/backups/`. They expire on their own (checked when Fino opens and whenever you return to it). Settings shows how much space they take and **frees** them; History discards a single session's backup. Backups deleted by hand are detected. |
-| **HEIC → JPEG (optional)** | Off by default: HEIC is already the lighter format and Fino leaves it alone. Turned on, each HEIC becomes a JPEG at the *Compact* strength — about 25% lighter than the HEIC on iPhone photos — with EXIF, XMP, colour profile and orientation intact; HDR, depth and portrait data are dropped. Live Photos stay paired with their video. |
+| **Backups** | Stored in `~/Library/Application Support/app.fino.desktop/backups/` (Windows: `%APPDATA%\app.fino.desktop\backups\`). They expire on their own (checked when Fino opens and whenever you return to it). Settings shows how much space they take and **frees** them; History discards a single session's backup. Backups deleted by hand are detected. |
+| **HEIC → JPEG (optional, macOS)** | Off by default: HEIC is already the lighter format and Fino leaves it alone. Turned on, each HEIC becomes a JPEG at the *Compact* strength — about 25% lighter than the HEIC on iPhone photos — with EXIF, XMP, colour profile and orientation intact; HDR, depth and portrait data are dropped. Live Photos stay paired with their video. |
 | **Mini window** | A small dial that floats over other apps: drop photos or folders on it and watch each photo go by as it is optimized. |
 | **Export a copy** | Leaves originals untouched. Copies go to a `Fino` folder next to each photo or to a fixed destination, mirroring the folder structure. |
 | **Several sizes** | Up to 4 sizes per export (long edge, max width or max height). Honors EXIF orientation and never upscales. |
 | **Strength** | *Flawless* (no difference even under a loupe), *Identical* (recommended: looks the same as the original) and *Compact* (a little lighter, for the web and social media). |
 | **Compare** | Before/after view with a draggable divider and a **100% loupe** that follows the cursor. Only offered while both the original and the optimized file are still in place. |
 | **History** | Total savings, unlimited sessions (local SQLite database), undo, and a CSV log with the reason each file was skipped. |
-| **Light and dark** | Follows macOS or is fixed from Settings — title bar and dialogs included. |
+| **Light and dark** | Follows the system or is fixed from Settings — title bar and dialogs included. |
 | **Privacy** | Optionally strips GPS location from EXIF and XMP; all other metadata stays. |
-| **Respects your files** | Keeps EXIF, XMP, IPTC and ICC profiles byte for byte, plus creation/modification dates, Finder tags and permissions. Writes atomically. |
+| **Respects your files** | Keeps EXIF, XMP, IPTC and ICC profiles byte for byte, plus creation/modification dates, permissions and, on macOS, Finder tags. Writes atomically. |
 | **Lossless when it pays** | When recompressing isn't worth it (already-compressed photos), it rewrites only the entropy coding: −3 to −7% with **identical** pixels. |
 | **Never worse** | If it can't save at least 3%, the file is left as is. Photos Fino already processed and HDR photos with a gain map are skipped. |
-| **Finder** | Drop photos or folders on the Dock icon, or use "Open With → Fino". |
-| **Apple Silicon and Intel** | Universal binary. |
+| **Open with Fino** | macOS: drop photos or folders on the Dock icon, or use "Open With → Fino". Windows: "Open with → Fino" in Explorer; if Fino is already open, the photos go to that window. |
+| **Apple Silicon, Intel and Windows** | Universal binary on macOS; a Windows 10/11 (x64) installer that needs no admin rights. |
 | **CLI** | `fino` runs the same engine from the terminal. |
 
 ## How the engine works
@@ -94,7 +94,7 @@ docs               design notes and screenshots
 
 ## Development
 
-Requirements: stable Rust, Node 18+ and the Xcode Command Line Tools.
+Requirements: stable Rust, Node 18+ and `nasm` (libjpeg's Intel/AMD SIMD). On macOS, the Xcode Command Line Tools; on Windows, Visual Studio Build Tools (C++) and WebView2 (built into Windows 10/11).
 
 ```bash
 npm install
@@ -112,7 +112,11 @@ cargo test --workspace
 npm run tauri build
 ```
 
-Universal binary (Apple Silicon + Intel; needs `nasm` for Intel SIMD and the `x86_64-apple-darwin` target):
+On Windows, `npm run tauri build` writes the installer to `target/release/bundle/nsis/`. Every push to `main` and every PR also builds it on GitHub Actions (artifact `fino-windows-installer`), alongside the tests on macOS and Windows.
+
+There is one codebase for both platforms: what is specific to each system is chosen at compile time (`#[cfg(target_os = …)]` in Rust, `src-tauri/tauri.windows.conf.json` for the window and the installer, `data-platform` in the UI). Windows has no HEIC conversion (it needs macOS's system decoder) and no Finder tags.
+
+macOS universal binary (Apple Silicon + Intel; needs the `x86_64-apple-darwin` target):
 
 ```bash
 npm run build:universal

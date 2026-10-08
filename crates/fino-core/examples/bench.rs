@@ -5,6 +5,7 @@ use fino_core::{prepare, OptimizeOptions, Outcome, Strength};
 use std::path::PathBuf;
 use std::time::Instant;
 
+#[cfg(unix)]
 fn cpu_seconds() -> f64 {
     // SAFETY: getrusage writes a plain struct we own.
     let mut usage: libc::rusage = unsafe { std::mem::zeroed() };
@@ -13,11 +14,23 @@ fn cpu_seconds() -> f64 {
     t(usage.ru_utime) + t(usage.ru_stime)
 }
 
+#[cfg(unix)]
 fn peak_rss_mb() -> f64 {
     // SAFETY: getrusage writes a plain struct we own. macOS reports ru_maxrss in bytes.
     let mut usage: libc::rusage = unsafe { std::mem::zeroed() };
     unsafe { libc::getrusage(libc::RUSAGE_SELF, &mut usage) };
     usage.ru_maxrss as f64 / 1e6
+}
+
+// Process CPU time and peak memory are only measured on macOS / Linux.
+#[cfg(not(unix))]
+fn cpu_seconds() -> f64 {
+    f64::NAN
+}
+
+#[cfg(not(unix))]
+fn peak_rss_mb() -> f64 {
+    f64::NAN
 }
 
 fn main() {

@@ -50,7 +50,7 @@ function OriginName({ origin }: { origin: Origin }) {
   }
 }
 
-/** Where the photos came from, over how they were handled. Clicking shows it in Finder. */
+/** Where the photos came from, over how they were handled. Clicking shows it in Finder / Explorer. */
 function OriginCell({ session }: { session: SessionEntry }) {
   const { notify } = useApp();
   const { origin } = session;

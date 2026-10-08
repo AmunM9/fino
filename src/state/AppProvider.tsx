@@ -121,7 +121,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => refreshHistory(), [refreshHistory]);
 
-  // Files can change behind Fino's back (Finder, other apps): re-check when the user comes back.
+  // Files can change behind Fino's back (Finder, Explorer, other apps): re-check when the user comes back.
   useEffect(() => {
     const onVisible = () => {
       if (document.visibilityState === "visible") refreshHistory();

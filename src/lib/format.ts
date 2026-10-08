@@ -1,9 +1,12 @@
+import { platform } from "./platform";
+
 const LOCALE = "es";
 
-// Decimal units, like Finder, so sizes match what macOS reports for the same files.
-const KB = 1000;
-const MB = KB * 1000;
-const GB = MB * 1000;
+// Sizes match the system's file manager for the same files: Finder counts in thousands,
+// Windows Explorer in 1024s (and still calls them KB / MB).
+const KB = platform === "windows" ? 1024 : 1000;
+const MB = KB * KB;
+const GB = MB * KB;
 
 const oneDecimal = new Intl.NumberFormat(LOCALE, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 const twoDecimals = new Intl.NumberFormat(LOCALE, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -58,11 +61,12 @@ export function formatDuration(ms: number): string {
   return `${integer.format(Math.floor(s / 60))} min ${integer.format(Math.round(s % 60))} s`;
 }
 
+/** Last component of a macOS (`/`) or Windows (`\`) path. */
 export function fileName(path: string): string {
-  return path.split("/").pop() ?? path;
+  return path.split(/[\\/]/).pop() || path;
 }
 
-/** Shortens /Users/me/Pictures/Trip → ~/Pictures/Trip */
+/** Shortens /Users/me/Pictures/Trip → ~/Pictures/Trip on macOS; Windows paths stay whole. */
 export function prettyPath(path: string): string {
   return path.replace(/^\/Users\/[^/]+/, "~");
 }

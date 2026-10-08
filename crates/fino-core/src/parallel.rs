@@ -42,7 +42,18 @@ fn total_memory() -> Option<u64> {
     (rc == 0 && bytes > 0).then_some(bytes)
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(windows)]
+fn total_memory() -> Option<u64> {
+    use windows_sys::Win32::System::SystemInformation::{GlobalMemoryStatusEx, MEMORYSTATUSEX};
+    // SAFETY: MEMORYSTATUSEX is a plain C struct; the API requires `dwLength` to be set to
+    // its size before the call and fills the rest.
+    let mut status: MEMORYSTATUSEX = unsafe { std::mem::zeroed() };
+    status.dwLength = std::mem::size_of::<MEMORYSTATUSEX>() as u32;
+    let ok = unsafe { GlobalMemoryStatusEx(&mut status) };
+    (ok != 0 && status.ullTotalPhys > 0).then_some(status.ullTotalPhys)
+}
+
+#[cfg(not(any(target_os = "macos", windows)))]
 fn total_memory() -> Option<u64> {
     None
 }
@@ -79,6 +90,13 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(any(target_os = "macos", windows))]
+    #[test]
+    fn reads_installed_memory() {
+        let bytes = total_memory().expect("installed memory");
+        assert!(bytes >= 1 << 30, "{bytes}");
+    }
     use std::sync::atomic::AtomicUsize;
 
     #[test]

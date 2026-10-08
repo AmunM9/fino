@@ -1,7 +1,9 @@
 //! File-system side of optimization: discovering photos, writing atomically and
-//! keeping everything a photographer relies on — dates, Finder tags, permissions.
+//! keeping everything a photographer relies on — dates, permissions and, on macOS, Finder
+//! tags.
 
 use std::collections::HashSet;
+#[cfg(unix)]
 use std::ffi::OsString;
 use std::fs;
 use std::io::Write;
@@ -42,6 +44,22 @@ fn is_hidden(path: &Path) -> bool {
         .is_some_and(|n| n.starts_with('.'))
 }
 
+/// Windows marks hidden and system files with attributes rather than a leading dot.
+#[cfg(windows)]
+fn hidden_by_attribute(entry: &fs::DirEntry) -> bool {
+    use std::os::windows::fs::MetadataExt;
+    const FILE_ATTRIBUTE_HIDDEN: u32 = 0x2;
+    const FILE_ATTRIBUTE_SYSTEM: u32 = 0x4;
+    entry
+        .metadata()
+        .is_ok_and(|m| m.file_attributes() & (FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM) != 0)
+}
+
+#[cfg(not(windows))]
+fn hidden_by_attribute(_entry: &fs::DirEntry) -> bool {
+    false
+}
+
 /// Expands dropped paths into files. Files dropped directly are always included (so the user
 /// learns why a non-JPEG was skipped); inside folders only JPEGs and HEICs are picked up. Symlinked
 /// folders are not followed. Each file appears once even if dropped twice (e.g. a folder and
@@ -76,12 +94,13 @@ fn walk(dir: &Path, root: &Path, jobs: &mut Vec<Job>) {
         let Ok(kind) = entry.file_type() else {
             continue;
         };
-        if is_hidden(&path) || kind.is_symlink() {
+        if is_hidden(&path) || hidden_by_attribute(&entry) || kind.is_symlink() {
             continue;
         }
+        let heic = crate::heic::CONVERSION_AVAILABLE && has_heic_extension(&path);
         if kind.is_dir() {
             walk(&path, root, jobs);
-        } else if kind.is_file() && (has_jpeg_extension(&path) || has_heic_extension(&path)) {
+        } else if kind.is_file() && (has_jpeg_extension(&path) || heic) {
             jobs.push(Job {
                 path,
                 root: Some(root.to_path_buf()),
@@ -97,32 +116,35 @@ pub struct Attributes {
     accessed: SystemTime,
     created: Option<SystemTime>,
     permissions: fs::Permissions,
+    /// Extended attributes: Finder tags, colour labels, "where from"…
+    #[cfg(unix)]
     xattrs: Vec<(OsString, Vec<u8>)>,
 }
 
 impl Attributes {
     pub fn read(path: &Path) -> std::io::Result<Self> {
         let meta = fs::metadata(path)?;
-        let xattrs = xattr::list(path)
-            .map(|names| {
-                names
-                    .filter(|n| n != "com.apple.quarantine")
-                    .filter_map(|n| xattr::get(path, &n).ok().flatten().map(|v| (n, v)))
-                    .collect()
-            })
-            .unwrap_or_default();
         Ok(Self {
             modified: meta.modified()?,
             accessed: meta.accessed()?,
             created: meta.created().ok(),
             permissions: meta.permissions(),
-            xattrs,
+            #[cfg(unix)]
+            xattrs: xattr::list(path)
+                .map(|names| {
+                    names
+                        .filter(|n| n != "com.apple.quarantine")
+                        .filter_map(|n| xattr::get(path, &n).ok().flatten().map(|v| (n, v)))
+                        .collect()
+                })
+                .unwrap_or_default(),
         })
     }
 
     /// Best effort: a missing Finder tag must never fail an otherwise good write.
+    /// Permissions go last: a read-only file still takes its dates first.
     pub fn apply(&self, path: &Path) -> std::io::Result<()> {
-        fs::set_permissions(path, self.permissions.clone())?;
+        #[cfg(unix)]
         for (name, value) in &self.xattrs {
             let _ = xattr::set(path, name, value);
         }
@@ -134,7 +156,7 @@ impl Attributes {
         if let Some(created) = self.created {
             let _ = set_creation_time(path, created);
         }
-        Ok(())
+        fs::set_permissions(path, self.permissions.clone())
     }
 }
 
@@ -177,9 +199,97 @@ fn set_creation_time(path: &Path, time: SystemTime) -> std::io::Result<()> {
     }
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(windows)]
+fn set_creation_time(path: &Path, time: SystemTime) -> std::io::Result<()> {
+    use std::os::windows::fs::{FileTimesExt, OpenOptionsExt};
+    // Attribute access only: works on read-only files too.
+    const FILE_WRITE_ATTRIBUTES: u32 = 0x100;
+    let file = fs::OpenOptions::new()
+        .access_mode(FILE_WRITE_ATTRIBUTES)
+        .open(path)?;
+    file.set_times(fs::FileTimes::new().set_created(time))
+}
+
+#[cfg(not(any(target_os = "macos", windows)))]
 fn set_creation_time(_path: &Path, _time: SystemTime) -> std::io::Result<()> {
     Ok(())
+}
+
+/// Moves `from` onto `to`, replacing it.
+///
+/// On Windows a replace fails where macOS succeeds: on a read-only target (made writable
+/// first — callers restore its attributes afterwards) and while another process briefly
+/// holds the file (antivirus, search indexer, thumbnail cache), which is retried.
+#[cfg(windows)]
+fn rename_over(from: &Path, to: &Path) -> std::io::Result<()> {
+    const ERROR_ACCESS_DENIED: i32 = 5;
+    const ERROR_SHARING_VIOLATION: i32 = 32;
+    const ERROR_LOCK_VIOLATION: i32 = 33;
+    let was_read_only = make_writable(to);
+    let mut attempt = 0;
+    let result = loop {
+        // A file held open by another process clears up in moments; access denied may be a
+        // real permission problem, so it gets fewer tries.
+        let (limit, error) = match fs::rename(from, to) {
+            Ok(()) => break Ok(()),
+            Err(e) => match e.raw_os_error() {
+                Some(ERROR_SHARING_VIOLATION | ERROR_LOCK_VIOLATION) => (8, e),
+                Some(ERROR_ACCESS_DENIED) => (2, e),
+                _ => break Err(e),
+            },
+        };
+        if attempt >= limit {
+            break Err(error);
+        }
+        attempt += 1;
+        std::thread::sleep(std::time::Duration::from_millis(40 * attempt));
+    };
+    if result.is_err() && was_read_only {
+        set_read_only(to);
+    }
+    result
+}
+
+#[cfg(not(windows))]
+fn rename_over(from: &Path, to: &Path) -> std::io::Result<()> {
+    fs::rename(from, to)
+}
+
+/// Clears Windows' read-only flag, which blocks replacing or deleting a file. Returns
+/// whether it was set.
+#[cfg(windows)]
+#[allow(clippy::permissions_set_readonly_false)] // Windows: only the read-only attribute.
+fn make_writable(path: &Path) -> bool {
+    let Ok(meta) = fs::metadata(path) else {
+        return false;
+    };
+    let mut permissions = meta.permissions();
+    if !permissions.readonly() {
+        return false;
+    }
+    permissions.set_readonly(false);
+    fs::set_permissions(path, permissions).is_ok()
+}
+
+/// Puts back a read-only flag `make_writable` cleared, when the replace did not happen.
+#[cfg(windows)]
+fn set_read_only(path: &Path) {
+    if let Ok(meta) = fs::metadata(path) {
+        let mut permissions = meta.permissions();
+        permissions.set_readonly(true);
+        let _ = fs::set_permissions(path, permissions);
+    }
+}
+
+#[cfg(not(windows))]
+fn make_writable(_path: &Path) -> bool {
+    false
+}
+
+/// `fs::remove_file`, also for files Windows marks read-only.
+pub fn remove_file(path: &Path) -> std::io::Result<()> {
+    make_writable(path);
+    fs::remove_file(path)
 }
 
 static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
@@ -201,7 +311,8 @@ pub fn write_atomic(target: &Path, bytes: &[u8]) -> std::io::Result<()> {
         let mut file = fs::File::create(&tmp)?;
         file.write_all(bytes)?;
         file.sync_all()?;
-        fs::rename(&tmp, target)
+        drop(file);
+        rename_over(&tmp, target)
     })();
     if result.is_err() {
         let _ = fs::remove_file(&tmp);
@@ -215,7 +326,11 @@ pub fn backup(original: &Path, backup: &Path) -> std::io::Result<()> {
     if let Some(parent) = backup.parent() {
         fs::create_dir_all(parent)?;
     }
-    fs::hard_link(original, backup).or_else(|_| fs::copy(original, backup).map(|_| ()))
+    fs::hard_link(original, backup).or_else(|_| fs::copy(original, backup).map(|_| ()))?;
+    // A backup must stay removable. (A hard link shares the original's flag — and the
+    // original is about to be replaced and get its attributes back anyway.)
+    make_writable(backup);
+    Ok(())
 }
 
 /// Replaces `path` with `bytes`, keeping its dates, tags and permissions. If `backup_to` is
@@ -277,7 +392,10 @@ pub fn copy_file(from: &Path, to: &Path) -> std::io::Result<()> {
     }
     let attrs = Attributes::read(from)?;
     let tmp = temp_path(to);
-    let copied = fs::copy(from, &tmp).and_then(|_| fs::rename(&tmp, to));
+    let copied = fs::copy(from, &tmp).and_then(|_| {
+        make_writable(&tmp);
+        rename_over(&tmp, to)
+    });
     if copied.is_err() {
         let _ = fs::remove_file(&tmp);
     }
@@ -295,7 +413,7 @@ fn move_file(from: &Path, to: &Path) -> std::io::Result<()> {
         return Ok(());
     }
     copy_file(from, to)?;
-    fs::remove_file(from)
+    remove_file(from)
 }
 
 /// Replace mode for a conversion (HEIC → JPEG): writes `bytes` as a new JPEG next to
@@ -316,7 +434,7 @@ pub fn convert_in_place(
     let _ = attrs.apply(&out);
     let retired = match backup_to {
         Some(dest) => move_file(source, dest),
-        None => fs::remove_file(source),
+        None => remove_file(source),
     };
     if let Err(e) = retired {
         let _ = fs::remove_file(&out);
@@ -351,7 +469,7 @@ pub fn restore_converted(
     if output_present {
         // The original is back, which is what undo promises; a JPEG that cannot be removed
         // is left beside it rather than turning a successful undo into a failure.
-        let _ = fs::remove_file(output);
+        let _ = remove_file(output);
     }
     Ok(())
 }
@@ -417,10 +535,10 @@ pub fn restore(backup: &Path, path: &Path, expected: Option<Fingerprint>) -> std
         }
     }
     let attrs = Attributes::read(backup)?;
-    if fs::rename(backup, path).is_err() {
+    if rename_over(backup, path).is_err() {
         let bytes = fs::read(backup)?;
         write_atomic(path, &bytes)?;
-        fs::remove_file(backup)?;
+        remove_file(backup)?;
     }
     let _ = attrs.apply(path);
     Ok(())

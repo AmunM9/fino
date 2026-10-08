@@ -59,6 +59,8 @@ enum Source<'a> {
         /// MPF images after the primary (HDR gain map…), re-attached byte for byte.
         secondaries: Vec<mpf::MpImage>,
     },
+    // Only built by the HEIC decoder, which needs macOS.
+    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
     Converted(Converted),
 }
 
@@ -162,6 +164,7 @@ pub fn prepare<'a>(
 }
 
 impl<'a> Prepared<'a> {
+    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
     pub(crate) fn converted(
         pixels: Pixels,
         orientation: u16,

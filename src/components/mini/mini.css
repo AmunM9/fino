@@ -1,9 +1,10 @@
-/* Compact droplet window (300 × 324 pt). Traffic lights sit top-left over the content. */
+/* Compact droplet window (300 × 324 pt). On macOS the traffic lights sit top-left over the
+   content; elsewhere the native title bar is above it. */
 .mini {
   position: relative;
   isolation: isolate;
   display: grid;
-  grid-template-rows: 44px 1fr auto auto;
+  grid-template-rows: var(--mini-chrome-top) 1fr auto auto;
   justify-items: center;
   height: 100%;
   padding: 0 var(--space-4) var(--space-4);

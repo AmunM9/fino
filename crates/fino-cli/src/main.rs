@@ -71,7 +71,8 @@ struct Cli {
     force: bool,
 
     /// Convert HEIC photos to JPEG (Compact strength; HDR, depth and portrait data
-    /// are dropped). Without it HEIC photos are left alone.
+    /// are dropped). Without it HEIC photos are left alone. macOS only: it uses the
+    /// system's HEIC decoder.
     #[arg(long)]
     heic: bool,
 

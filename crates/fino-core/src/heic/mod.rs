@@ -12,6 +12,11 @@ pub use container::{inspect, is_heif, HeifInfo};
 use crate::error::{Result, SkipReason};
 use crate::options::{OptimizeOptions, Strength};
 
+/// HEIC needs a system decoder; only macOS ships one Fino can rely on (Windows' HEVC codec
+/// is an optional Store extension). Elsewhere HEIC photos are not picked up from folders and
+/// are reported as unsupported when dropped directly.
+pub const CONVERSION_AVAILABLE: bool = cfg!(target_os = "macos");
+
 /// Conversions always use this strength: a JPEG at the source's own quality weighs far more
 /// than the HEIC (it is the less efficient format), Compact keeps it near the HEIC's size.
 pub const CONVERSION_STRENGTH: Strength = Strength::Compact;
@@ -37,10 +42,8 @@ pub fn prepare<'a>(
     data: &'a [u8],
     options: &OptimizeOptions,
 ) -> Result<std::result::Result<Prepared<'a>, SkipReason>> {
-    let info = inspect(data)?;
-    Ok(Err(
-        precheck(&info, options).unwrap_or(SkipReason::Unsupported)
-    ))
+    let _ = (data, options);
+    Ok(Err(SkipReason::Unsupported))
 }
 
 #[cfg(target_os = "macos")]

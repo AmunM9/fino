@@ -1,3 +1,4 @@
+import { fileManager, thisComputer } from "./platform";
 import type { SkipReason, Strength } from "./types";
 
 /** UI copy (Spanish). One place to translate. */
@@ -30,7 +31,7 @@ export const t = {
     compare: "Comparar",
     undo: "Deshacer",
     undone: "Originales restaurados",
-    reveal: "Mostrar en Finder",
+    reveal: `Mostrar en ${fileManager}`,
     newSession: "Soltar más",
     confirmReplaceTitle: "¿Reemplazar los originales?",
     confirmReplace: (n: number, backups: boolean) =>
@@ -90,7 +91,7 @@ export const t = {
 
   history: {
     title: "Historial",
-    subtitle: "Todo lo que Fino ha ahorrado en este Mac.",
+    subtitle: `Todo lo que Fino ha ahorrado en ${thisComputer}.`,
     totalSaved: "Ahorro total",
     photos: "Fotos optimizadas",
     sessions: "Sesiones",
@@ -102,7 +103,7 @@ export const t = {
     originMore: (n: number) => (n === 1 ? "y 1 más" : `y ${n} más`),
     originFolders: (n: number) => `${n} carpetas`,
     originScattered: "Varias ubicaciones",
-    originReveal: (path: string) => `${path} · Mostrar en Finder`,
+    originReveal: (path: string) => `${path} · Mostrar en ${fileManager}`,
     replaced: "Originales",
     exported: "Exportadas",
     exportLog: "Exportar CSV",

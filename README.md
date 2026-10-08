@@ -6,10 +6,10 @@
 
 [English](README.en.md) · Español
 
-Fino es una app para macOS que recomprime JPEG con un criterio *perceptual*. Prueba versiones cada vez más pequeñas de cada foto, compara cada candidata con el original zona por zona y se queda con la más pequeña en la que no aparece ningún artefacto visible. Todo con piezas abiertas, en tu Mac y sin conexión.
+Fino es una app para macOS y Windows que recomprime JPEG con un criterio *perceptual*. Prueba versiones cada vez más pequeñas de cada foto, compara cada candidata con el original zona por zona y se queda con la más pequeña en la que no aparece ningún artefacto visible. Todo con piezas abiertas, en tu equipo y sin conexión.
 
 ```
-89 fotos de cámara (24 MP)   511 MB → 156 MB   (−69,4 %)   ~0,6 s por foto
+89 fotos de cámara (24 MP)   511 MB → 156 MB   (−69,5 %)   ~0,25 s por foto
 misma resolución · mismos metadatos · SSIMULACRA 2 ≈ 85
 ```
 
@@ -33,21 +33,21 @@ misma resolución · mismos metadatos · SSIMULACRA 2 ≈ 85
 | | |
 |---|---|
 | **Optimizar originales** | Reemplaza cada foto. Antes guarda un respaldo para que puedas **deshacer la sesión** (retención de 1, 7 o 30 días). |
-| **Respaldos** | Viven en `~/Library/Application Support/app.fino.desktop/backups/`. Se borran solos al vencer (Fino lo revisa al abrirse y al volver a la ventana). En Ajustes ves cuánto ocupan y puedes **liberarlos**; en Historial, descartar el de una sesión. Si los borras a mano, Fino lo detecta. |
-| **HEIC → JPEG (opcional)** | Desactivado de fábrica: el HEIC ya es el formato más liviano y Fino lo deja como está. Si lo activas, cada HEIC pasa a JPEG en intensidad *Compacta* — unos 25 % más liviano que el HEIC en fotos de iPhone — con EXIF, XMP, perfil de color y orientación correctos; se quitan el HDR, la profundidad y los datos de retrato. Las Live Photos siguen emparejadas con su video. |
+| **Respaldos** | Viven en `~/Library/Application Support/app.fino.desktop/backups/` (Windows: `%APPDATA%\app.fino.desktop\backups\`). Se borran solos al vencer (Fino lo revisa al abrirse y al volver a la ventana). En Ajustes ves cuánto ocupan y puedes **liberarlos**; en Historial, descartar el de una sesión. Si los borras a mano, Fino lo detecta. |
+| **HEIC → JPEG (opcional, macOS)** | Desactivado de fábrica: el HEIC ya es el formato más liviano y Fino lo deja como está. Si lo activas, cada HEIC pasa a JPEG en intensidad *Compacta* — unos 25 % más liviano que el HEIC en fotos de iPhone — con EXIF, XMP, perfil de color y orientación correctos; se quitan el HDR, la profundidad y los datos de retrato. Las Live Photos siguen emparejadas con su video. |
 | **Ventana mini** | Un dial pequeño que flota sobre las demás apps: arrastras fotos o carpetas y ves pasar cada foto mientras se optimiza. |
 | **Exportar copia** | Deja los originales intactos. Guarda las copias en una carpeta `Fino` junto a cada foto o en un destino fijo, y respeta la estructura de carpetas. |
 | **Varios tamaños** | Hasta 4 tamaños por exportación (lado largo, ancho máx. o alto máx.). Respeta la orientación EXIF y nunca amplía. |
 | **Intensidad** | *Impecable* (ni con lupa notarás la diferencia), *Idéntica* (recomendada: se ve igual que el original) y *Compacta* (un poco más liviana, para web y redes). |
 | **Comparar** | Vista antes/después con divisor deslizable y **lupa al 100 %** que sigue al cursor. Solo se ofrece si el original y la versión optimizada siguen donde estaban. |
 | **Historial** | Ahorro total, sesiones sin límite (base de datos SQLite local), deshacer y exportación del log a CSV con el motivo de cada archivo omitido. |
-| **Tema claro y oscuro** | Sigue a macOS o se fija desde Ajustes; también la barra de título y los diálogos. |
+| **Tema claro y oscuro** | Sigue al sistema o se fija desde Ajustes; también la barra de título y los diálogos. |
 | **Privacidad** | Opción para quitar la ubicación GPS de EXIF y XMP; el resto de metadatos no se toca. |
-| **Respeta tu archivo** | Conserva byte a byte EXIF, XMP, IPTC y perfiles ICC, además de fechas de creación y modificación, etiquetas de Finder y permisos. Escribe de forma atómica. |
+| **Respeta tu archivo** | Conserva byte a byte EXIF, XMP, IPTC y perfiles ICC, además de fechas de creación y modificación, permisos y, en macOS, etiquetas de Finder. Escribe de forma atómica. |
 | **Sin pérdida cuando conviene** | Si recomprimir no compensa (fotos ya comprimidas), reescribe solo la codificación: −3 a −7 % con píxeles **idénticos**. |
 | **Nunca empeora** | Si no ahorra al menos un 3 %, deja el archivo como estaba. También salta las fotos que ya pasaron por Fino y los HDR con *gain map*. |
-| **Finder** | Arrastra fotos o carpetas al icono del Dock, o usa «Abrir con → Fino». |
-| **Apple Silicon e Intel** | Binario universal. |
+| **Abrir con Fino** | macOS: arrastra fotos o carpetas al icono del Dock o usa «Abrir con → Fino». Windows: «Abrir con → Fino» en el Explorador; si Fino ya está abierto, las fotos llegan a esa ventana. |
+| **Apple Silicon, Intel y Windows** | Binario universal en macOS; instalador para Windows 10/11 (x64) sin permisos de administrador. |
 | **CLI** | `fino` usa el mismo motor desde la terminal. |
 
 ## Cómo funciona el motor
@@ -92,7 +92,7 @@ docs               diseño y capturas
 
 ## Desarrollo
 
-Requisitos: Rust estable, Node 18 o superior y Xcode Command Line Tools.
+Requisitos: Rust estable, Node 18 o superior y `nasm` (SIMD de libjpeg en Intel/AMD). En macOS, Xcode Command Line Tools; en Windows, Visual Studio Build Tools (C++) y WebView2 (incluido en Windows 10/11).
 
 ```bash
 npm install
@@ -110,7 +110,11 @@ cargo test --workspace
 npm run tauri build
 ```
 
-Binario universal (Apple Silicon + Intel; requiere `nasm` para el SIMD de Intel y el target `x86_64-apple-darwin`):
+En Windows, `npm run tauri build` genera el instalador en `target/release/bundle/nsis/`. Cada push a `main` y cada PR lo compilan también en GitHub Actions (artefacto `fino-windows-installer`), junto con los tests en macOS y Windows.
+
+El código es uno solo para las dos plataformas: lo propio de cada sistema se elige al compilar (`#[cfg(target_os = …)]` en Rust, `src-tauri/tauri.windows.conf.json` para la ventana y el instalador, `data-platform` en la interfaz). En Windows no hay conversión HEIC (requiere el decodificador del sistema de macOS) ni etiquetas de Finder.
+
+Binario universal de macOS (Apple Silicon + Intel; requiere el target `x86_64-apple-darwin`):
 
 ```bash
 npm run build:universal

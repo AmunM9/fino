@@ -2,10 +2,17 @@ import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { useEffect, useRef, useState } from "react";
 import { ipc } from "../lib/ipc";
+import { platform } from "../lib/platform";
 
 /**
- * Native file drops anywhere on the window, plus files opened from Finder
- * ("Open With → Fino" or dropped on the Dock icon).
+ * Windows launches Fino once per file chosen in Explorer's "Open with" (macOS hands them over
+ * together): files arriving this close together are gathered into one batch.
+ */
+const GATHER_MS = platform === "windows" ? 400 : 0;
+
+/**
+ * Native file drops anywhere on the window, plus files opened with Fino from the system
+ * (macOS: "Open With → Fino" or the Dock icon; Windows: "Open with" or the taskbar).
  */
 export function useFileDrop(onPaths: (paths: string[]) => void): boolean {
   const [isOver, setIsOver] = useState(false);
@@ -30,25 +37,31 @@ export function useFileDrop(onPaths: (paths: string[]) => void): boolean {
       .then(keep)
       .catch(() => undefined);
 
-    // Finder hands paths to the backend, which buffers them until we ask — so a cold
+    // The system hands paths to the backend, which buffers them until we ask — so a cold
     // "Open With" launch can't fire before this listener exists.
-    const drainOpened = () =>
+    let gathering: ReturnType<typeof setTimeout> | undefined;
+    const take = () =>
       ipc
         .takeOpenedPaths()
-        .then((paths) => paths.length > 0 && handler.current(paths))
+        .then((paths) => !disposed && paths.length > 0 && handler.current(paths))
         .catch(() => undefined);
+    const drainOpened = () => {
+      clearTimeout(gathering);
+      gathering = setTimeout(() => void take(), GATHER_MS);
+    };
     // Drain once the listener exists too: paths that arrived while it was being registered
-    // would otherwise wait for the next Finder event.
+    // would otherwise wait for the next one.
     listen("open-paths", drainOpened)
       .then((unlisten) => {
         keep(unlisten);
-        void drainOpened();
+        drainOpened();
       })
       .catch(() => undefined);
-    void drainOpened();
+    drainOpened();
 
     return () => {
       disposed = true;
+      clearTimeout(gathering);
       unlisteners.forEach((u) => u());
     };
   }, []);

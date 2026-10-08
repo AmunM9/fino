@@ -14,7 +14,7 @@ export interface SizePreset {
 
 export type OutputMode = "replace" | "export";
 
-/** "system" follows macOS live. */
+/** "system" follows the OS live. */
 export type Appearance = "system" | "light" | "dark";
 
 export interface Settings {
@@ -125,7 +125,7 @@ export type OriginLabel =
 export type Origin = OriginLabel & {
   /** The folder in full, home as `~` (null when there is no shared folder). */
   path: string | null;
-  /** A photo still in place, or the folder: what "show in Finder" opens. */
+  /** A photo still in place, or the folder: what "show in Finder / Explorer" opens. */
   reveal: string | null;
 };
 

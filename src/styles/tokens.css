@@ -70,11 +70,27 @@
 
   --rail-width: 64px;
   --panel-width: 300px;
+
+  /* Window chrome. macOS draws its traffic lights over the content (top-left), so content
+     keeps clear of them and a strip along the top drags the window. */
   --titlebar-height: 40px;
+  --chrome-top: 64px;
+  --chrome-left: 92px;
+  --mini-chrome-top: 44px;
+}
+
+/* Windows has a native title bar above the web view: no overlay to clear. Set before first
+   paint by public/theme-boot.js. */
+:root[data-platform="windows"],
+:root[data-platform="linux"] {
+  --titlebar-height: 0px;
+  --chrome-top: var(--space-5);
+  --chrome-left: var(--space-4);
+  --mini-chrome-top: var(--space-3);
 }
 
 /* Light theme. `data-theme` is set before first paint (public/theme-boot.js) from the
-   user's choice in Ajustes, or from macOS when it is "Sistema". */
+   user's choice in Ajustes, or from the system when it is "Sistema". */
 :root[data-theme="light"] {
   color-scheme: light;
   --color-bg: oklch(97.4% 0.004 95);

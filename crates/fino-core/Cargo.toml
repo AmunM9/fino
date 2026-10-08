@@ -16,13 +16,20 @@ rayon = "1.12"
 regex = "1"
 serde = { version = "1.0.229", features = ["derive"] }
 thiserror = "2"
-xattr = "1.6.1"
 zensim = "0.2.7"
 zune-jpeg = "0.5.15"
 
 [dev-dependencies]
 fast-ssim2 = { version = "0.8.2", features = ["imgref"] }
 tempfile = "3.27.0"
+
+# Extended attributes (Finder tags, colour labels) travel with optimized photos.
+[target.'cfg(unix)'.dependencies]
+xattr = "1.6.1"
+
+# Installed memory, to bound how many photos are in flight.
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_System_SystemInformation"] }
 
 # HEIC decoding through the system's ImageIO (no bundled HEVC codec).
 [target.'cfg(target_os = "macos")'.dependencies]

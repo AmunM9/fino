@@ -3,13 +3,11 @@
 
 use serde::Serialize;
 use std::collections::BTreeSet;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 
 /// Up to this many loose files from one folder are named one by one.
 const FEW_FILES: usize = 3;
-/// Shallower than this (`/`, `/Users`, `/Volumes`) a shared ancestor says nothing useful.
-const MIN_COMMON_DEPTH: usize = 3;
-/// Existence checks per session when looking for something to reveal in Finder.
+/// Existence checks per session when looking for something to reveal in Finder / Explorer.
 const REVEAL_PROBES: usize = 20;
 
 /// How the origin reads; the UI words it.
@@ -61,7 +59,29 @@ fn common_ancestor<'a>(mut dirs: impl Iterator<Item = &'a Path>) -> PathBuf {
     })
 }
 
+/// Whether a shared ancestor says anything about where photos came from: not a disk's root,
+/// not `/Users` or `/Volumes` — but on Windows a top-level folder like `D:\Fotos` does.
+fn is_meaningful(common: &Path) -> bool {
+    let names: Vec<_> = common
+        .components()
+        .filter_map(|c| match c {
+            Component::Normal(name) => Some(name),
+            _ => None,
+        })
+        .collect();
+    match names.as_slice() {
+        [] => false,
+        [only] => cfg!(windows) && !only.eq_ignore_ascii_case("Users"),
+        _ => true,
+    }
+}
+
+/// The folder for the tooltip; on macOS the home folder is shortened to `~`, which means
+/// nothing to most Windows users.
 fn display(path: &Path, home: Option<&Path>) -> String {
+    if cfg!(windows) {
+        return path.to_string_lossy().into_owned();
+    }
     match home.and_then(|h| path.strip_prefix(h).ok()) {
         Some(rest) if rest.as_os_str().is_empty() => "~".into(),
         Some(rest) => format!("~/{}", rest.to_string_lossy()),
@@ -91,7 +111,7 @@ pub fn describe(paths: &[PathBuf], home: Option<&Path>) -> Option<Origin> {
             name: name_of(&common),
         };
         (label, Some(common.clone()))
-    } else if common.components().count() < MIN_COMMON_DEPTH {
+    } else if !is_meaningful(&common) {
         (OriginLabel::Scattered, None)
     } else {
         let label = OriginLabel::Folders {
@@ -189,6 +209,34 @@ mod tests {
     }
 
     #[test]
+    fn only_folders_that_say_something_count_as_shared() {
+        assert!(!is_meaningful(Path::new("/")));
+        assert!(!is_meaningful(Path::new("/Users")));
+        assert!(is_meaningful(Path::new("/Users/a")));
+        assert_eq!(is_meaningful(Path::new("/Fotos")), cfg!(windows));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn windows_drives_and_profiles() {
+        assert_eq!(
+            label(&[r"D:\Fotos\Boda\1.jpg", r"D:\Fotos\Viaje\2.jpg"]),
+            OriginLabel::Folders {
+                name: "Fotos".into(),
+                count: 2
+            }
+        );
+        assert_eq!(
+            label(&[r"C:\Users\a\1.jpg", r"C:\Users\b\2.jpg"]),
+            OriginLabel::Scattered
+        );
+        assert_eq!(
+            label(&[r"C:\Fotos\1.jpg", r"E:\DCIM\2.jpg"]),
+            OriginLabel::Scattered
+        );
+    }
+
+    #[test]
     fn no_files_no_origin() {
         assert_eq!(describe(&[], None), None);
     }
@@ -203,7 +251,12 @@ mod tests {
         std::fs::write(&kept, b"x").unwrap();
 
         let origin = describe(&[gone.clone(), kept.clone()], Some(dir.path())).unwrap();
-        assert_eq!(origin.path.as_deref(), Some("~/Boda"));
+        let expected = if cfg!(windows) {
+            folder.to_string_lossy().into_owned()
+        } else {
+            "~/Boda".into()
+        };
+        assert_eq!(origin.path.as_deref(), Some(expected.as_str()));
         assert_eq!(origin.reveal, Some(kept.clone()));
 
         std::fs::remove_file(&kept).unwrap();

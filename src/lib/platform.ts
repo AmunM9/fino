@@ -1,0 +1,24 @@
+/**
+ * The OS the app runs on, read once from the web view (WKWebView on macOS, WebView2 on
+ * Windows). public/theme-boot.js sets the same value as `<html data-platform>` before first
+ * paint, so CSS can adapt the window chrome without waiting for React.
+ */
+export type Platform = "macos" | "windows" | "linux";
+
+export function detectPlatform(userAgent: string): Platform {
+  if (/Windows/i.test(userAgent)) return "windows";
+  if (/Mac OS X|Macintosh/i.test(userAgent)) return "macos";
+  return "linux";
+}
+
+export const platform: Platform =
+  typeof navigator === "undefined" ? "macos" : detectPlatform(navigator.userAgent);
+
+/** HEIC → JPEG needs the system's HEIC decoder, which only macOS provides (see fino-core). */
+export const heicConversionAvailable = platform === "macos";
+
+/** What the system file manager is called, for "show in …". */
+export const fileManager = platform === "windows" ? "el Explorador" : platform === "macos" ? "Finder" : "la carpeta";
+
+/** How the computer is referred to in copy. */
+export const thisComputer = platform === "macos" ? "este Mac" : "este equipo";
